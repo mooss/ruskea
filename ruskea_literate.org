@@ -1,0 +1,1115 @@
+#+TITLE: Distanciel modèles de Markov cachés
+#+AUTHOR: Félix Jamet
+#+OPTIONS: toc:2
+#+LANGUAGE: fr
+#+PROPERTY: header-args:ipython :session markexec :results silent :tangle markov.py :eval no-export
+
+* Consignes
+
+L’expérimentation présentée dans l’article est (à mon avis) passionnante. Et il serait intéressant de la reproduire sur une autre langue, par exemple la langue française. Pour cela vous devrez:
+
+ - Trouver un corpus en langue française, de taille raisonnable (prendre en référence ce qui est proposé dans l’article)
+ - Nettoyer ce corpus pour ne garder que les 26 lettres de l’alphabet et les espaces
+ - Utiliser un EM/Baum Welch déjà implémenté (par exemple dans les bibliothèques des langages de programmation) ou utilisez le pseudo-code fourni dans l’algorithme pour réimplémenter votre Baum Welch, pour apprendre les paramètres de votre HMM.
+ - Dessinez le HMM (si vous avez utilisé une bibliothèque) et analysez les résultats : à deux classes a-t-on bien les voyelles et les consonnes?
+
+Si vous êtes plus de 2 à faire le choix 4, il est demandé de regarder d’autres langues, en particulier l’Espagnol et l’Allemand. On peut prendre comme base : n étudiants : n-1 langues.
+
+* Quelques définitions
+ - États :: ce que l'on cherche à prédir.
+ - Observations :: informations supplémentaires que l'on va utiliser afin de prédire les états.
+
+* Notations
+
+#+CAPTION: Notation des modèles de Markov
+#+NAME: tbl.notations
+| symbole                                                                  | signification                        |
+|--------------------------------------------------------------------------+--------------------------------------|
+| $A$                                                                      | matrice des transitions              |
+| $B$                                                                      | matrice des observations             |
+| $\pi$                                                                    | distribution initiale des états      |
+|--------------------------------------------------------------------------+--------------------------------------|
+| $N$                                                                      | nombre d'états dans le modèle        |
+| $Q = \{q_0, q_1, \dots, \q_{N-1}\}$                                      | ensemble des états                   |
+|--------------------------------------------------------------------------+--------------------------------------|
+| $M$                                                                      | nombres de symboles d'observation    |
+| $V = \{0, 1, \dots, M-1\}$                                               | ensemble des observations possibles  |
+| $T$                                                                      | longueur de la chaine d'observations |
+| $\mathcal{O} = (\mathcal{O}_0, \mathcal{O}_1, \dots, \mathcal{O}_{T-1})$ | chaine d'observations                |
+
+La table [[tbl.notations]] est séparée en trois parties.
+La première rassemble ce qui définit un modèle de Markov, la deuxième est constituée de caractéristiques calculées et la dernière partie concerne les observations.
+
+La matrice des transitions est notée $A = \{a_{i,j}\}$, avec
+$a_{i,j} = P(\text{ état } q_j \text{ au temps } t+1 | \text{ état } q_i \text{ au temps } t)$.
+Ainsi, si on envisage de manipuler la matrice $A$ comme un tableau de tableaux, on a $A[i][j] = a_{i,j}$
+
+
+$A_{i,j}$ correspond à la probabilité d'être dans l'état $q_j$ sachant qu'on était avant dans l'état $q_i$.
+Autrement dit, la probabilité de passer dans l'état $q_j$ si l'on est dans l'état $q_i$.
+On remarque que les probabilités des transitions sont indépendantes du temps $t$.
+
+La matrice des observations est notée $B = \{b_j(k)\}$, avec
+$$b_j(k) = P(\text{observation } k \text{ au temps } t | \text{ état } q_j \text{ au temps } t)$$
+$b_j(k)$ est donc la probabilité d'observer $k$ en étant dans l'état $q_j$. Bien que surprenante, la notation $b_j(k)$ semble être standard dans le domaine des modèles de Markov.
+
+$\pi$ est la distribution initiale des états, c'est à dire la probabilité de démarer dans chacun des état. Il s'agit donc là encore d'une matrice stochastique.
+
+Un modèle de Markov caché (MMC) est défini par $A$, $B$ et $\pi$, et se note typiquement $$\lambda = (A, B, \pi)$$
+
+* Problèmes pour lesquels les MMC sont utiles
+Il existe trois problèmes particuliers qui peuvent être résolus à l'aide des modèles de Markov cachés.
+
+** Problème 1
+Étant donné un MMC et une chaine d'observations, trouver la probabilité de cette chaine selon ce modèle. Autrement dit, étant donné le MMC $\lambda = (A, B, \pi)$ et la chaine d'observation 
+$\mathcal{O} = (\mathcal{O}_0, \mathcal{O}_1, \dots, \mathcal{O}_{T-1})$
+, trouver $P(\mathcal{O} | \lambda )$.
+
+Cette probabilité correspond à la somme des probabilités d'observer $\mathcal{O}$ sur tous les arrangements avec répétition de longueur $T$ des états de $\lambda$.
+Étant donné que cette méthode revient à faire une somme sur $N^T$ éléments, on développe l'intuition qu'elle n'est pas viable.
+
+** Problème 2
+Étant donné un MMC et une chaine d'observation, trouver l'enchainement d'états optimal correspondant.
+
+Les enchainements optimaux d'états trouvés par la programmation dynamique et par les modèles de Markov cachés sont susceptibles de différer. En effet, la programmation dynamique permettra de trouver l'enchainement d'états ayant la plus haute probabilité, tandis que les MMC vont trouver l'enchainement dont les états ont la plus grande probabilité d'être individuelement corrects.
+Autrement dit, les MMC vont permettre de maximiser le nombre d'états corrects.
+
+** Problème 3
+Étant donné une chaine d'observation, un nombre d'états et un nombre de symboles, trouver le MMC maximisant la probabilité de cette chaine d'observation, autrement dit, entrainer un HMM pour le faire correspondre aux observations.
+
+*  Réimplémentation de Baum-Welch
+:PROPERTIES:
+:header-args:ipython: :session markexec :results silent :tangle markov.py
+:END:
+** Modèles de Markov
+ 
+#+BEGIN_SRC ipython :results silent
+  import math
+  import random
+  import numpy as np
+
+  def stochastic_variation(mat, epsilon):
+      """Slightly changes the values of a matrix while making sure that the sum of the rows are kept the same.
+
+      Parameters
+      ----------
+      mat : np.matrix
+          Matrix to change.
+
+      epsilon : float
+          Maximal variation.
+      """
+      for row in mat:
+          delta = 0
+          for i in range(0, len(row)):
+              if delta > epsilon / 2:
+                  nextvariation = random.uniform(-epsilon, 0)
+              elif delta < -epsilon / 2:
+                  nextvariation = random.uniform(0, epsilon)
+              else:
+                  nextvariation = random.uniform(-epsilon, epsilon)
+
+              delta += nextvariation
+              row[i] += nextvariation
+
+          row[-1] -= delta
+
+  class markovmodel(object):
+      def fromscratch(N, M):
+          """Create a Markov model from scratch with the following matrices dimensions:
+           - A is NxN
+           - B is NxM
+           - PI is 1xN
+
+          Parameters
+          ----------
+          N : int
+
+          M : int
+
+          Returns
+          -------
+          out : The corresponding Markov model
+          """
+          inverseN = 1 / N
+          inverseM = 1 / M
+
+          transition = np.full((N, N), inverseN)
+          observation = np.full((N, M), inverseM)
+          initial = np.full((1, N), inverseN)
+
+          stochastic_variation(transition, inverseN / 5)
+          stochastic_variation(observation, inverseM / 5)
+          stochastic_variation(initial, inverseN / 5)
+
+          return markovmodel(transition, observation, initial)
+
+      def __init__(self,
+                   transition_matrix,
+                   observation_matrix,
+                   initial_state_distribution,
+                   rel_tol=1e-9):
+          """Create a markov model.
+
+          Parameters
+          ----------
+          transition_matrix : np.matrix
+              NxN matrix containing the state transitions probabilities.
+
+          observation_matrix : np.matrix
+              NxM matrix containing the observation probabilities.
+
+          initial_state_distribution : np.matrix
+              1xN matrix containing the initial state distribution
+          """
+          self.transition_matrix = transition_matrix
+          self.observation_matrix = observation_matrix
+          self.initial_state_distribution = initial_state_distribution
+          self.rel_tol = rel_tol
+          self.ensure_dimensional_validity()
+          self.ensure_row_stochasticity()
+
+          self.ndim = transition_matrix.shape[0]
+          self.mdim = observation_matrix.shape[1]
+
+      def __str__(self):
+          return '\n'.join((
+              'transition:',
+              str(self.transition_matrix), '',
+              'observation:',
+              str(self.observation_matrix), '',
+              'initial states:',
+              str(self.initial_state_distribution)))
+
+      def ensure_dimensional_validity(self):
+          """Raises an exception if the matrices' dimensions are not right.
+          """
+          tr_rows, tr_columns = self.transition_matrix.shape
+          ob_rows, _ = self.observation_matrix.shape
+          in_rows, in_columns = self.initial_state_distribution.shape
+
+          if not (tr_rows == tr_columns == ob_rows == in_columns):
+              raise ValueError('The number of transition rows, transition columns, observation rows and initial state distribution columns is not the same')
+
+          if in_rows != 1:
+              raise ValueError("The initial state distribution matrix should have one and only one row")
+
+      def ensure_row_stochasticity(self):
+          """Raises an exception if the matrices are not row-stochastic.
+          """
+          def fullofones(iterable):
+              return all(math.isclose(el, 1, rel_tol = self.rel_tol) for el in iterable)
+
+          if not fullofones(self.transition_matrix.sum(axis=1)):
+              raise ValueError("The transition matrix is not row stochastic")
+
+          if not fullofones(self.observation_matrix.sum(axis=1)):
+              raise ValueError("The observation matrix is not row stochastic")
+
+          if not fullofones(self.initial_state_distribution.sum(axis=1)):
+              raise ValueError("The initial_state_distribution matrix is not row stochastic")
+
+      def getinitialstate(self, i):
+          return self.initial_state_distribution[0,i]
+#+END_SRC
+
+*** Tests
+:PROPERTIES:
+:header-args:ipython: :tangle markov_tests.py :session markexec :results output replace
+:END:
+
+**** Initialisation
+
+#+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports none
+  from markov import *
+#+END_SRC
+
+**** Création /from scratch/
+#+BEGIN_SRC ipython 
+  markovtest = markovmodel.fromscratch(3, 4)
+  print(markovtest.transition_matrix)
+#+END_SRC
+
+#+RESULTS:
+: [[0.36550065 0.38060577 0.25389358]
+:  [0.3865694  0.26883708 0.34459352]
+:  [0.36905208 0.32066251 0.31028542]]
+
+**** Exemple prédiction de température
+Il s'agit ici de tester la création des chaines de markov en utilisant l'exemple de prédiction de température.
+
+#+BEGIN_SRC ipython
+  try:
+      markovtemperature = markovmodel(
+          np.matrix([[0.7, 0.3],
+                     [0.4, 0.6]]),
+          np.matrix([[0.1, 0.4, 0.5],
+                     [0.7, 0.2, 0.1]]),
+          np.matrix([[0.6, 0.4]])
+      )
+      print('transition:', markovtemperature.transition_matrix,
+            'observation:', markovtemperature.observation_matrix,
+            'initial states:', markovtemperature.initial_state_distribution,
+            sep='\n')
+  except Exception as e:
+      print('construction failed:', str(e))
+#+END_SRC
+
+#+RESULTS:
+: transition:
+: [[0.7 0.3]
+:  [0.4 0.6]]
+: observation:
+: [[0.1 0.4 0.5]
+:  [0.7 0.2 0.1]]
+: initial states:
+: [[0.6 0.4]]
+
+** Forward
+
+#+BEGIN_SRC ipython :results output silent
+
+  def alpha_pass(markov, observations):
+      """Implementation of the forward algorithm to compute the alpha_t values.
+
+      Parameters
+      ----------
+      markov : markovchain
+
+      observations : iterable
+
+      Returns
+      -------
+      out : np.array
+          The alpha_t values.
+      """
+      alpha = np.zeros(shape=(len(observations), markov.ndim))
+      scale_factors = np.zeros(shape=(len(observations)))
+    
+      # alpha_zero initialization
+
+      for i in range(0, markov.ndim):
+          alpha[0, i] = markov.getinitialstate(i) * markov.observation_matrix[i, 0]
+          scale_factors[0] += alpha[0, i]
+
+      scale_factors[0] = 1 /scale_factors[0]
+    
+      for i in range(0, markov.ndim):
+          alpha[0, i] *= scale_factors[0]
+
+      # alpha_t computation
+      for t in range(1, len(observations)):
+          for i in range(0, markov.ndim):
+              for j in range(0, markov.ndim):
+                  alpha[t, i] += alpha[t - 1, j] * markov.transition_matrix[j, i]
+              alpha[t, i] *= markov.observation_matrix[i, observations[t]]
+              scale_factors[t] += alpha[t, i]
+
+          # scale alpha
+          scale_factors[t] = 1 / scale_factors[t]
+          for i in range(0, markov.ndim):
+              alpha[t, i] *= scale_factors[t]
+
+      return (alpha, scale_factors)
+#+END_SRC
+
+*** Test
+:PROPERTIES:
+:header-args:ipython: :tangle markov_tests.py :session markexec :results output replace
+:END:
+#+BEGIN_SRC ipython
+  observations = [0, 1, 0, 2]
+  alpha_matrix, scales = alpha_pass(markovtemperature, observations)
+  print(alpha_matrix)
+  print(scales)
+#+END_SRC
+
+#+RESULTS:
+: [[0.17647059 0.82352941]
+:  [0.62348178 0.37651822]
+:  [0.16880093 0.83119907]
+:  [0.8039794  0.1960206 ]]
+: [2.94117647 3.44129555 2.87543655 3.56816483]
+
+**** backup
+#+RESULTS:
+: [[0.17647059 0.82352941]
+:  [0.62348178 0.37651822]
+:  [0.16880093 0.83119907]
+:  [0.8039794  0.1960206 ]]
+
+** Backward
+
+#+BEGIN_SRC ipython :results output silent
+  def beta_pass(markov, observations, scale_factors):
+      """
+
+      Parameters
+      ----------
+      markov : 
+
+      observations : 
+
+      Returns
+      -------
+      out : 
+
+      """
+      beta = np.zeros(shape=(len(observations), markov.ndim))
+
+      # all elements of the last column take the last scale factor as value
+      # np.vectorize(lambda _: scale_factors[-1])(beta.transpose()[-1])
+      # for line in beta:
+      #     line[-1] = scale_factors[-1]
+      for i in range(0, markov.ndim):
+          beta[-1, i] = scale_factors[-1]
+
+      for t in reversed(range(0, len(observations) - 1)):
+          for i in range(0, markov.ndim):
+              for j in range(0, markov.ndim):
+                  beta[t, i] += markov.transition_matrix[i, j] * markov.observation_matrix[j, observations[t+1]] * beta[t + 1, j]
+
+              # scale beta
+              beta[t, i] *= scale_factors[t]
+
+      return beta
+#+END_SRC
+
+*** Tests
+:PROPERTIES:
+:header-args:ipython: :tangle markov_tests.py :session markexec :results output replace
+:END:
+
+#+BEGIN_SRC ipython
+  beta_matrix = beta_pass(markovtemperature, observations, scales)
+  print(beta_matrix)
+#+END_SRC
+
+#+RESULTS:
+: [[3.1361635  2.89939354]
+:  [2.86699344 4.39229044]
+:  [3.898812   2.66760821]
+:  [3.56816483 3.56816483]]
+
+** Gamma et di-gamma
+
+#+BEGIN_SRC ipython :results silent
+  def gamma_digamma_pass(markov, observations, alpha, beta):
+      """
+
+      Parameters
+      ----------
+      markov : 
+    
+      observations : 
+    
+      alpha : 
+    
+      beta : 
+    
+      Returns
+      -------
+      out : 
+    
+      """
+      digamma = np.zeros(shape=(len(observations), markov.ndim, markov.ndim))
+      gamma = np.zeros(shape=(len(observations), markov.ndim))
+
+      for t in range(0, len(observations) - 1):
+          for i in range(0, markov.ndim):
+              for j in range(0, markov.ndim):
+                  digamma[t, i, j] = alpha[t, i] * markov.transition_matrix[i, j] * markov.observation_matrix[j, observations[t + 1]] * beta[t + 1, j]
+                  gamma[t, i] += digamma[t, i, j]
+
+      # special case for the last gammas
+      for i in range(0, markov.ndim - 1):
+          gamma[-1, i] = alpha[-1, i]
+
+      return (gamma, digamma)
+#+END_SRC
+
+*** Test
+:PROPERTIES:
+:header-args:ipython: :tangle markov_tests.py :session markexec :results output replace
+:END:
+
+#+BEGIN_SRC ipython
+  gamma, digamma = gamma_digamma_pass(
+      markovtemperature,
+      observations,
+      alpha_matrix,
+      beta_matrix
+  )
+  print(gamma, '\n\n\n', digamma, sep='')
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+[[0.18816981 0.81183019]
+ [0.51943175 0.48056825]
+ [0.22887763 0.77112237]
+ [0.8039794  0.        ]]
+
+
+[[[0.14166321 0.0465066 ]
+  [0.37776855 0.43406164]]
+
+ [[0.17015868 0.34927307]
+  [0.05871895 0.4218493 ]]
+
+ [[0.21080834 0.01806929]
+  [0.59317106 0.17795132]]
+
+ [[0.         0.        ]
+  [0.         0.        ]]]
+#+end_example
+
+
+*** =greek_pass=
+La fonction =greek_pass= fait office de sucre syntaxique, pour faire toutes les passes définies précédemment en récupérant seulement ce qui nous intéresse, à savoir les gammas et di-gammas.
+
+#+BEGIN_SRC ipython 
+  def greek_pass(markov, observations):
+      """
+
+      Parameters
+      ----------
+      markov : 
+    
+      observations : 
+    
+      Returns
+      -------
+      out : 
+    
+      """
+      alpha, scale_factors = alpha_pass(markov, observations)
+      beta = beta_pass(markov, observations, scale_factors)
+      return (*gamma_digamma_pass(markov, observations, alpha, beta), scale_factors)
+#+END_SRC
+
+**** Test
+:PROPERTIES:
+:header-args:ipython: :tangle markov_tests.py :session markexec :results output replace
+:END:
+
+#+BEGIN_SRC ipython
+  gamma2, digamma2, scale_factors = greek_pass(markovtemperature, observations)
+  if not np.array_equal(gamma, gamma2) or not np.array_equal(digamma, digamma2):
+      print('gammas or digammas from greek_pass and from gamma_digamma_pass differ')
+  else:
+      print('gammas and digammas from greek_pass and from gamma_digamma_pass are the same')
+
+  if not np.array_equal(scales, scale_factors):
+      print('the scale factors from alpha_pass et greek_pass differ')
+  else:
+      print('the scale factors from alpha_pass et greek_pass are the same')
+#+END_SRC
+
+#+RESULTS:
+: gammas and digammas from greek_pass and from gamma_digamma_pass are the same
+: the scale factors from alpha_pass et greek_pass are the same
+
+** Réestimation
+
+*** Distribution initiale des états
+
+#+BEGIN_SRC ipython
+  def reestimate_initial_state_distribution(markov, gamma):
+      """Use previously-calculated gamma values to do a re-estimation of the initial state distribution.
+
+      Parameters
+      ----------
+      markov : 
+    
+      gamma : 
+    
+      Returns
+      -------
+      out : 
+      """
+      for i in range(0, markov.ndim):
+          markov.initial_state_distribution[0, i] = gamma[0, i]
+#+END_SRC
+
+*** Transitions
+
+#+BEGIN_SRC ipython
+  def reestimate_transition_matrix(markov, gamma, digamma):
+      """
+
+
+          Parameters
+          ----------
+          markov : 
+
+          gamma : 
+
+          digamma : 
+
+          Returns
+          -------
+          out : 
+
+      """
+      for i in range(0, markov.ndim):
+          for j in range(0, markov.ndim):
+              gamma_acc, digamma_acc = 0, 0
+              for t in range(0, len(gamma) - 1):
+                  gamma_acc += gamma[t, i]
+                  digamma_acc += digamma[t, i, j]
+              markov.transition_matrix[i, j] = digamma_acc / gamma_acc
+
+      markov.ensure_row_stochasticity()
+#+END_SRC
+
+*** Observations
+
+#+BEGIN_SRC ipython
+  def reestimate_observation_matrix(markov, observations, gamma):
+      """
+
+      Parameters
+      ----------
+      markov : 
+    
+      observations : 
+    
+      gamma : 
+      """
+      for i in range(0, markov.ndim):
+          for j in range(0, markov.mdim):
+              gamma_acc_observed, gamma_acc_all = 0, 0
+              for t in range(0, len(observations)):
+                  if observations[t] == j:
+                      gamma_acc_observed += gamma[t, i]
+                  gamma_acc_all += gamma[t, i]
+              markov.observation_matrix[i, j] = gamma_acc_observed / gamma_acc_all
+#+END_SRC
+
+*** Probabilité de la chaine d'observation
+La probabilité de la chaine d'observation selon le modèle de Markov est utilisé pour mesurer l'avancement de l'entrainement de ce modèle.
+
+#+BEGIN_SRC ipython
+  def log_observation_sequence_probability(scale_factors):
+      """Compute the log of the observation's sequence probability according to a markov model, using the scales factors.
+
+      Parameters
+      ----------
+      scale_factors : 
+    
+      Returns
+      -------
+      out : 
+      """
+      result = 0
+      for i in range(0, len(scale_factors)):
+          result += math.log(scale_factors[i])
+      return -result
+    
+#+END_SRC
+
+*** Modèle
+On utilise les trois fonctions de réestimation précédentes pour réestimer le modèle dans sa globalité, à partir de la chaine des observations.
+
+#+BEGIN_SRC ipython
+  def reestimate_markov_model(markov, observations):
+      """
+
+      Parameters
+      ----------
+      markov : 
+    
+      observations : 
+    
+      Returns
+      -------
+      out : 
+      """
+      gamma, digamma, scale_factors = greek_pass(markov, observations)
+      reestimate_initial_state_distribution(markov, gamma)
+      reestimate_transition_matrix(markov, gamma, digamma)
+      reestimate_observation_matrix(markov, observations, gamma)
+      return log_observation_sequence_probability(scale_factors)
+#+END_SRC
+
+*** Boucle de réestimation
+L'entrainement d'un modèle de markov se fait en répétant des réevaluations.
+On arrête la boucle de réestimation lorsque un nombre pré-déterminé a été achevé ou lorsque la réestimation cesse d'apporter des améliorations par rapport à l'itération précédente.
+
+#+BEGIN_SRC ipython
+  def train_markov_model(markov, observations, max_iterations=200, epsilon = 0.000000001):
+      """
+
+      Parameters
+      ----------
+      markov : 
+
+      observations : 
+
+      max_iterations : 
+
+      Returns
+      -------
+      out : 
+      """
+      prevlogprob = float('-inf')
+      logprob = reestimate_markov_model(markov, observations)
+
+      for i in range(1, max_iterations):
+          if(logprob <= prevlogprob):
+              print('the model stopped improving at iteration', i)
+              return 
+
+          prevlogprob = logprob
+          logprob = reestimate_markov_model(markov, observations)
+          markov.ensure_row_stochasticity()
+      print('the model never stopped improving')
+#+END_SRC
+
+*** Test
+:PROPERTIES:
+:header-args:ipython: :tangle markov_tests.py :session markexec :results output replace
+:END:
+
+#+BEGIN_SRC ipython
+  from copy import deepcopy
+  markov_copy = deepcopy(markovtemperature)
+  print(markov_copy)
+  train_markov_model(markov_copy, observations, 10)
+  print(markov_copy)
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+transition:
+[[0.7 0.3]
+ [0.4 0.6]]
+
+observation:
+[[0.1 0.4 0.5]
+ [0.7 0.2 0.1]]
+
+initial states:
+[[0.6 0.4]]
+the model stopped improving at iteration 9
+transition:
+[[3.80741949e-287 1.00000000e+000]
+ [1.00000000e+000 0.00000000e+000]]
+
+observation:
+[[9.52278575e-288 5.00000000e-001 5.00000000e-001]
+ [1.00000000e+000 0.00000000e+000 0.00000000e+000]]
+
+initial states:
+[[1.69480811e-290 1.00000000e+000]]
+#+end_example
+
+
+
+* Analyse de texte assistée par un modèle de Markov caché
+
+#+BEGIN_SRC ipython
+  def map_el_to_int(iterable, alphabet):
+      """Map all the elements of an iterable to their index in an alphabet.
+      If an element is not in the alphabet, it will be ignored.
+
+      Parameters
+      ----------
+      iterable : iterable
+          The iterable to map.
+
+      alphabet : str
+          The letters to keep.
+
+      Returns
+      -------
+      out : list of int
+          The list containing the index of each character in the input string.
+      """
+      indexation = {letter: index for index, letter in enumerate(alphabet)}
+      return (indexation[char] for char in iterable if char in alphabet)
+
+  def markov_alphabetical_analysis(markov, alphabet):
+      observation_scores = [[letter,
+                             ,*(markov.observation_matrix[state, index]
+                                for state in range(0, markov.ndim))]
+                            for index, letter in enumerate(alphabet)]
+
+      letter_groups = [list() for _ in range(0, markov.ndim)]
+
+      for index, letter in enumerate(alphabet):
+          max = 0
+          for state in range(1, markov.ndim):
+              if markov.observation_matrix[state, index] >\
+                 markov.observation_matrix[max, index]:
+                  max = state
+              letter_groups[max].append(letter)
+
+      return observation_scores, letter_groups
+
+#+END_SRC
+
+* Extraction des 50 000 premiers caractères du brown corpus
+
+#+BEGIN_SRC ipython :session brownextract :results silent :tangle brownextract.py :eval never
+  import nltk
+  nltk.download('brown')
+  nltk.download('nonbreaking_prefixes')
+  nltk.download('perluniprops')
+  from nltk.corpus import brown
+  from nltk.tokenize.moses import MosesDetokenizer
+
+  mdetok = MosesDetokenizer()
+
+  def remove_brown_annotations(sentence):
+      return mdetok.detokenize(
+          ' '.join(sent).replace('``', '"')\
+          .replace("''", '"')\
+          .replace('`', "'").split(),
+          return_str=True)
+
+
+  maxnbchar = 50000
+  currentnbchar = 0
+  charbuffer = []
+
+  alphabet = 'abcdefghijklmnopqrstuvwxyz '
+
+  for sent in brown.sents():
+      for char in remove_brown_annotations(sent):
+          if currentnbchar < maxnbchar and char in alphabet:
+              charbuffer.append(char)
+              currentnbchar += 1
+
+  output = 'brown50000.txt'
+  with open(output, "w") as text_file:
+      text_file.write(''.join(charbuffer))
+
+#+END_SRC
+
+* Entrainement sur le /Brown corpus/                                 :export:
+** Imports
+
+#+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports code :tangle brownmarvin.py
+  import numpy as np
+  from markov import *
+#+END_SRC
+
+** Matrices prédéfinies
+:PROPERTIES:
+:header-args:ipython: :tangle brownmarvin.py :session markexec :results output replace drawer
+:END:
+
+#+BEGIN_SRC ipython :exports code :async yes
+
+
+  marvin_transition = np.array([[0.47468, 0.52532],
+                                [0.51656, 0.48344]])
+  marvin_observation = np.array(
+      [[0.03688, 0.03735, 0.03408, 0.03455, 0.03828, 0.03782, 0.03922, 0.03688, 0.03408, 0.03875, 0.04062, 0.03735, 0.03968, 0.03548, 0.03735, 0.04062, 0.03595, 0.03641, 0.03408, 0.04062, 0.03548, 0.03922, 0.04062, 0.03455, 0.03595, 0.03408, 0.03408],
+       [0.03397, 0.03909, 0.03537, 0.03537, 0.03909, 0.03583, 0.03630, 0.04048, 0.03537, 0.03816, 0.03909, 0.03490, 0.03723, 0.03537, 0.03909, 0.03397, 0.03397, 0.03816, 0.03676, 0.04048, 0.03443, 0.03537, 0.03955, 0.03816, 0.03723, 0.03769, 0.03955]]
+  )
+  marvin_initial = np.array([[0.51316, 0.48684]])
+
+  with open('brown50000.txt', 'r') as marvinfile:
+      marvin_corpus = marvinfile.read().replace('\n', '')
+
+  alphabet = ' abcdefghijklmnopqrstuvwxyz'
+  brownmarvin = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
+
+  train_markov_model(brownmarvin,
+                     list(map_el_to_int(marvin_corpus, alphabet)),
+                     max_iterations=100)
+
+  print(brownmarvin)
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+the model never stopped improving
+transition:
+[[0.23368789 0.76631211]
+ [0.70597863 0.29402137]]
+
+observation:
+[[2.80687985e-01 1.42581906e-01 1.40629293e-13 6.66524349e-04
+  3.56911264e-06 2.25725373e-01 1.37666921e-17 4.42155954e-03
+  4.87498731e-04 1.27752553e-01 6.73394223e-30 2.92496160e-03
+  5.50924144e-05 2.54038203e-14 9.00794057e-12 1.37718752e-01
+  1.83313919e-03 1.75675908e-23 5.22460779e-15 1.36925065e-04
+  2.03105974e-02 4.65458472e-02 3.21539099e-30 1.30524222e-18
+  6.21332760e-19 8.14771643e-03 4.60426291e-39]
+ [6.47562560e-02 1.73259604e-05 2.12112202e-02 5.05695235e-02
+  6.67813143e-02 5.46638241e-10 3.43145283e-02 2.29783808e-02
+  7.06007667e-02 1.83269804e-12 2.26714128e-03 5.02886564e-03
+  7.28051731e-02 3.72349136e-02 1.14817257e-01 1.92319303e-06
+  3.28946287e-02 1.53704494e-03 1.00830148e-01 1.07044308e-01
+  1.32110256e-01 5.77443034e-07 1.63311025e-02 2.14417769e-02
+  4.53428257e-03 1.87385009e-02 1.15278370e-03]]
+
+initial states:
+[[1.00000000e+00 1.45406913e-11]]
+#+end_example
+
+#+BEGIN_SRC ipython :tangle no :exports results
+  def latexify(char):
+      if char == ' ':
+          return '\\textvisiblespace'
+      return char
+
+  def markov_report(markov, alphabet):
+      scoretable, groups = markov_alphabetical_analysis(markov, alphabet)
+      scoretable = [[latexify(line[0]),
+                     ,*('${:.3f}$'.format(probas * 100) for probas in line[1:])]
+                    for line in scoretable]
+      scoretable.insert(0, ['caractère', 'État 1 (%)', 'État 2 (%)'])
+      print('#+ATTR_LATEX: :align l l l')
+      print(orgmodetable(scoretable, header=True), '\n\n\n')
+
+      groupstable = [['{ ' + ',  '.join((latexify(char) for char in group)) + ' }'
+                        for group in groups] ]
+      groupstable.insert(0, ['Groupe 1', 'Groupe 2'])
+      print(orgmodetable(groupstable, header=True))
+
+  markov_report(brownmarvin, alphabet)
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+#+ATTR_LATEX: :align l l l
+| caractère         | État 1 (%) | État 2 (%) |
+|-------------------|------------|------------|
+| \textvisiblespace | $28.069$   | $6.476$    |
+| a                 | $14.258$   | $0.002$    |
+| b                 | $0.000$    | $2.121$    |
+| c                 | $0.067$    | $5.057$    |
+| d                 | $0.000$    | $6.678$    |
+| e                 | $22.573$   | $0.000$    |
+| f                 | $0.000$    | $3.431$    |
+| g                 | $0.442$    | $2.298$    |
+| h                 | $0.049$    | $7.060$    |
+| i                 | $12.775$   | $0.000$    |
+| j                 | $0.000$    | $0.227$    |
+| k                 | $0.292$    | $0.503$    |
+| l                 | $0.006$    | $7.281$    |
+| m                 | $0.000$    | $3.723$    |
+| n                 | $0.000$    | $11.482$   |
+| o                 | $13.772$   | $0.000$    |
+| p                 | $0.183$    | $3.289$    |
+| q                 | $0.000$    | $0.154$    |
+| r                 | $0.000$    | $10.083$   |
+| s                 | $0.014$    | $10.704$   |
+| t                 | $2.031$    | $13.211$   |
+| u                 | $4.655$    | $0.000$    |
+| v                 | $0.000$    | $1.633$    |
+| w                 | $0.000$    | $2.144$    |
+| x                 | $0.000$    | $0.453$    |
+| y                 | $0.815$    | $1.874$    |
+| z                 | $0.000$    | $0.115$    | 
+
+
+
+| Groupe 1                                  | Groupe 2                                                                              |
+|-------------------------------------------|---------------------------------------------------------------------------------------|
+| { \textvisiblespace,  a,  e,  i,  o,  u } | { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } |
+:END:
+
+** Matrices aléatoires
+:PROPERTIES:
+:header-args:ipython: :tangle brownrandom.py :session markexec :results output replace drawer
+:END:
+
+#+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports none
+  import numpy as np
+  from markov import *
+#+END_SRC
+
+#+BEGIN_SRC ipython :exports code
+  with open('brown50000.txt', 'r') as brownfile:
+      browncorpus = brownfile.read().replace('\n', '')
+
+  alphabet = ' abcdefghijklmnopqrstuvwxyz'
+  brownmarkov = markovmodel.fromscratch(2, len(alphabet))
+  train_markov_model(brownmarkov,
+                     list(map_el_to_int(browncorpus, alphabet)),
+                     max_iterations=100)
+
+  print(brownmarkov)
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+the model never stopped improving
+transition:
+[[0.28837335 0.71162665]
+ [0.71095592 0.28904408]]
+
+observation:
+[[7.54755751e-03 1.40485662e-04 2.20908569e-02 5.32790551e-02
+  6.95541835e-02 1.91664370e-04 3.57375638e-02 2.72596989e-02
+  6.36534526e-02 4.34397900e-17 2.36116043e-03 5.39908893e-03
+  7.40628563e-02 3.87790586e-02 1.19578757e-01 1.47920197e-05
+  3.56431414e-02 1.60078673e-03 1.05011610e-01 1.11599242e-01
+  1.53938026e-01 4.04993202e-11 1.70083590e-02 2.23309749e-02
+  4.72232061e-03 2.72947175e-02 1.20059005e-03]
+ [3.28907651e-01 1.36557928e-01 1.91317630e-15 2.71174470e-05
+  5.33249065e-12 2.16150870e-01 3.65173356e-22 9.13285915e-04
+  1.03331655e-02 1.22464707e-01 1.57810746e-38 2.64237151e-03
+  1.81272459e-03 7.69011573e-13 1.15371370e-08 1.32005615e-01
+  3.74207030e-04 1.44781355e-31 9.40813201e-11 1.55978877e-05
+  3.13621337e-03 4.46198542e-02 1.48809107e-28 1.60976154e-30
+  2.47067688e-10 3.86794210e-05 4.37206294e-42]]
+
+initial states:
+[[1.75460366e-146 1.00000000e+000]]
+:END:
+
+
+#+BEGIN_SRC ipython :tangle no :exports results
+  markov_report(brownmarkov, alphabet)
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+#+ATTR_LATEX: :align l l l
+| caractère         | État 1 (%) | État 2 (%) |
+|-------------------|------------|------------|
+| \textvisiblespace | $0.755$    | $32.891$   |
+| a                 | $0.014$    | $13.656$   |
+| b                 | $2.209$    | $0.000$    |
+| c                 | $5.328$    | $0.003$    |
+| d                 | $6.955$    | $0.000$    |
+| e                 | $0.019$    | $21.615$   |
+| f                 | $3.574$    | $0.000$    |
+| g                 | $2.726$    | $0.091$    |
+| h                 | $6.365$    | $1.033$    |
+| i                 | $0.000$    | $12.246$   |
+| j                 | $0.236$    | $0.000$    |
+| k                 | $0.540$    | $0.264$    |
+| l                 | $7.406$    | $0.181$    |
+| m                 | $3.878$    | $0.000$    |
+| n                 | $11.958$   | $0.000$    |
+| o                 | $0.001$    | $13.201$   |
+| p                 | $3.564$    | $0.037$    |
+| q                 | $0.160$    | $0.000$    |
+| r                 | $10.501$   | $0.000$    |
+| s                 | $11.160$   | $0.002$    |
+| t                 | $15.394$   | $0.314$    |
+| u                 | $0.000$    | $4.462$    |
+| v                 | $1.701$    | $0.000$    |
+| w                 | $2.233$    | $0.000$    |
+| x                 | $0.472$    | $0.000$    |
+| y                 | $2.729$    | $0.004$    |
+| z                 | $0.120$    | $0.000$    | 
+
+
+
+| Groupe 1                                                                              | Groupe 2                                  |
+|---------------------------------------------------------------------------------------|-------------------------------------------|
+| { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } | { \textvisiblespace,  a,  e,  i,  o,  u } |
+:END:
+
+* 100 iter on brown backup
+#+RESULTS:
+#+begin_example
+27 [' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+50000 out of 50000
+1.0000299999999998
+1.00003
+the model never stopped improving
+CPU times: user 1min 59s, sys: 161 ms, total: 1min 59s
+Wall time: 1min 59s
+transition:
+[[0.23368789 0.76631211]
+ [0.70597863 0.29402137]]
+
+observation:
+[[2.80687985e-01 1.42581906e-01 1.40629293e-13 6.66524349e-04
+  3.56911264e-06 2.25725373e-01 1.37666921e-17 4.42155954e-03
+  4.87498731e-04 1.27752553e-01 6.73394223e-30 2.92496160e-03
+  5.50924144e-05 2.54038203e-14 9.00794057e-12 1.37718752e-01
+  1.83313919e-03 1.75675908e-23 5.22460779e-15 1.36925065e-04
+  2.03105974e-02 4.65458472e-02 3.21539099e-30 1.30524222e-18
+  6.21332760e-19 8.14771643e-03 4.60426291e-39]
+ [6.47562560e-02 1.73259604e-05 2.12112202e-02 5.05695235e-02
+  6.67813143e-02 5.46638241e-10 3.43145283e-02 2.29783808e-02
+  7.06007667e-02 1.83269804e-12 2.26714128e-03 5.02886564e-03
+  7.28051731e-02 3.72349136e-02 1.14817257e-01 1.92319303e-06
+  3.28946287e-02 1.53704494e-03 1.00830148e-01 1.07044308e-01
+  1.32110256e-01 5.77443034e-07 1.63311025e-02 2.14417769e-02
+  4.53428257e-03 1.87385009e-02 1.15278370e-03]]
+
+initial states:
+[[1.00000000e+00 1.45406913e-11]]
+#+end_example
+
+* 200 iterations on brown
+#+RESULTS:
+#+begin_example
+27 [' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+50000 out of 50000
+1.0000299999999998
+1.00003
+the model never stopped improving
+CPU times: user 3min 51s, sys: 345 ms, total: 3min 51s
+Wall time: 3min 52s
+transition:
+[[0.23221903 0.76778097]
+ [0.70229989 0.29770011]]
+
+observation:
+[[2.81739822e-001 1.43132488e-001 8.48434970e-039 9.75851831e-005
+  2.69362672e-015 2.26567133e-001 1.96209466e-052 3.91264554e-003
+  3.99838821e-004 1.28228959e-001 5.84694599e-089 2.88371026e-003
+  4.14028555e-011 8.80582911e-042 6.35909627e-035 1.38234418e-001
+  1.36580291e-003 1.62526402e-074 2.92938439e-044 4.11414990e-009
+  1.87721887e-002 4.67200518e-002 8.31615790e-092 2.25223167e-053
+  6.94701181e-054 7.94535098e-003 3.77091958e-115]
+ [6.45306779e-002 2.28885541e-011 2.11388638e-002 5.09197312e-002
+  6.65567850e-002 3.53676378e-028 3.41974735e-002 2.33806094e-002
+  7.04417813e-002 4.39068533e-035 2.25940754e-003 5.05942349e-003
+  7.26074017e-002 3.71078968e-002 1.14425589e-001 7.88275501e-014
+  3.32161677e-002 1.53180173e-003 1.00486193e-001 1.06804872e-001
+  1.33136144e-001 1.33386835e-016 1.62753933e-002 2.13686341e-002
+  4.51881509e-003 1.88874875e-002 1.14885129e-003]]
+
+initial states:
+[[1.00000000e+00 2.47001026e-27]]
+#+end_example
+
+* rand res
+#+begin_example
+27 [' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+50000 out of 50000
+the model stopped improving at iteration 174
+CPU times: user 3min 28s, sys: 216 ms, total: 3min 28s
+Wall time: 3min 28s
+transition:
+[[0.2974586  0.7025414 ]
+ [0.76846507 0.23153493]]
+
+observation:
+[[6.55124847e-02 5.71952340e-11 2.11330838e-02 5.08030870e-02
+  6.65385862e-02 3.93175379e-25 3.41881229e-02 2.32168465e-02
+  7.07175312e-02 2.43068346e-26 2.25878976e-03 5.05000573e-03
+  7.25875474e-02 3.70977504e-02 1.14394302e-01 4.80742210e-13
+  3.31094650e-02 1.53138289e-03 1.00458717e-01 1.06774963e-01
+  1.32618810e-01 4.32678209e-12 1.62709432e-02 2.13627913e-02
+  4.51757952e-03 1.87086727e-02 1.14853716e-03]
+ [2.80742624e-01 1.43181293e-01 2.26272409e-29 2.09981536e-04
+  2.64622305e-10 2.26602508e-01 1.24335623e-37 4.08612102e-03
+  7.72735123e-05 1.28272682e-01 2.02411595e-67 2.89348203e-03
+  1.59773171e-09 3.42954114e-32 6.43777215e-29 1.38281553e-01
+  1.47305209e-03 1.26206542e-55 7.16990137e-37 7.74877804e-07
+  1.93046624e-02 4.67359820e-02 2.40155627e-72 2.12006626e-37
+  1.26711428e-45 8.13801016e-03 1.70507529e-93]]
+
+initial states:
+[[0.47197308 0.52802692]]
+#+end_example
+
+* Questions
+ - "For example, the DP solution must have valid state transitions" ? How can transitions be invalid ?
+ - Where does the initial states distribution matrix come from ?
+ - Does $N \times M$ means $N$ rows $M$ columns or $N$ columns $M$ rows
