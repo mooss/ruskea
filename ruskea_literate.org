@@ -231,9 +231,9 @@ Autrement dit, les MMC vont permettre de maximiser le nombre d'états corrects.
 #+END_SRC
 
 #+RESULTS:
-: [[0.36550065 0.38060577 0.25389358]
-:  [0.3865694  0.26883708 0.34459352]
-:  [0.36905208 0.32066251 0.31028542]]
+: [[0.33782189 0.27527623 0.38690188]
+:  [0.37697272 0.30977383 0.31325345]
+:  [0.36755099 0.26891406 0.36353495]]
 
 **** Exemple prédiction de température
 Il s'agit ici de tester la création des chaines de markov en utilisant l'exemple de prédiction de température.
@@ -737,22 +737,31 @@ initial states:
                             for index, letter in enumerate(alphabet)]
 
       letter_groups = [list() for _ in range(0, markov.ndim)]
+      ungroupables = []
 
-      for index, letter in enumerate(alphabet):
-          max = 0
+      for letterindex, letter in enumerate(alphabet):
+          maxindex = 0
           for state in range(1, markov.ndim):
-              if markov.observation_matrix[state, index] >\
-                 markov.observation_matrix[max, index]:
-                  max = state
-              letter_groups[max].append(letter)
+              if markov.observation_matrix[state, letterindex] >\
+                 markov.observation_matrix[maxindex, letterindex]:
+                  maxindex = state
+              if markov.observation_matrix[maxindex, letterindex] == 0:
+                  ungroupables.append(letter)
+              else:
+                  letter_groups[maxindex].append(letter)
 
-      return observation_scores, letter_groups
+      return observation_scores, letter_groups, ungroupables
 
 #+END_SRC
 
-* Extraction des 50 000 premiers caractères du brown corpus
+* /Brown corpus/                                 :export:
+Dans cette section les fonctionnalités offertes par =markov.py= sont utilisées pour reproduire l'expérience de "Marvin le martien" (Stamp 2018)
+** Extraction des 50 000 premiers caractères du /Brown corpus/
 
-#+BEGIN_SRC ipython :session brownextract :results silent :tangle brownextract.py :eval never
+La première étape est d'extraire les caractères nous intéressant depuis le /Brown corpus/.
+En effet, le /Brown corpus/ est distribué avec les annotations intégrées et il faut donc les supprimer.
+Les 50000 premiers carctères de ce corpus sont écrits dans le fichier =brown50000.txt=.
+#+BEGIN_SRC ipython :session brownextract :results silent :tangle brownextract.py :eval never :shebang "#!/usr/bin/env python3"
   import nltk
   nltk.download('brown')
   nltk.download('nonbreaking_prefixes')
@@ -788,7 +797,6 @@ initial states:
 
 #+END_SRC
 
-* Entrainement sur le /Brown corpus/                                 :export:
 ** Imports
 
 #+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports code :tangle brownmarvin.py
@@ -801,7 +809,7 @@ initial states:
 :header-args:ipython: :tangle brownmarvin.py :session markexec :results output replace drawer
 :END:
 
-#+BEGIN_SRC ipython :exports code :async yes
+#+BEGIN_SRC ipython :exports code
 
 
   marvin_transition = np.array([[0.47468, 0.52532],
@@ -815,18 +823,18 @@ initial states:
   with open('brown50000.txt', 'r') as marvinfile:
       marvin_corpus = marvinfile.read().replace('\n', '')
 
-  alphabet = ' abcdefghijklmnopqrstuvwxyz'
-  brownmarvin = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
+  brown_alphabet = ' abcdefghijklmnopqrstuvwxyz'
+  brown_marvin = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
 
-  train_markov_model(brownmarvin,
-                     list(map_el_to_int(marvin_corpus, alphabet)),
+  train_markov_model(brown_marvin,
+                     list(map_el_to_int(marvin_corpus, brown_alphabet)),
                      max_iterations=100)
 
-  print(brownmarvin)
+  print(brown_marvin)
 #+END_SRC
 
 #+RESULTS:
-#+begin_example
+:RESULTS:
 the model never stopped improving
 transition:
 [[0.23368789 0.76631211]
@@ -850,7 +858,7 @@ observation:
 
 initial states:
 [[1.00000000e+00 1.45406913e-11]]
-#+end_example
+:END:
 
 #+BEGIN_SRC ipython :tangle no :exports results
   def latexify(char):
@@ -858,8 +866,8 @@ initial states:
           return '\\textvisiblespace'
       return char
 
-  def markov_report(markov, alphabet):
-      scoretable, groups = markov_alphabetical_analysis(markov, alphabet)
+  def markov_report(markov, brown_alphabet):
+      scoretable, groups, ungroupables = markov_alphabetical_analysis(markov, brown_alphabet)
       scoretable = [[latexify(line[0]),
                      ,*('${:.3f}$'.format(probas * 100) for probas in line[1:])]
                     for line in scoretable]
@@ -870,9 +878,15 @@ initial states:
       groupstable = [['{ ' + ',  '.join((latexify(char) for char in group)) + ' }'
                         for group in groups] ]
       groupstable.insert(0, ['Groupe 1', 'Groupe 2'])
+
+      if len(ungroupables) > 0:
+          groupstable[0].insert(
+              len(ungroupables), 'Hors groupes')
+          groupstable[1].insert(
+              len(ungroupables), '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
       print(orgmodetable(groupstable, header=True))
 
-  markov_report(brownmarvin, alphabet)
+  markov_report(brown_marvin, brown_alphabet)
 #+END_SRC
 
 #+RESULTS:
@@ -929,13 +943,13 @@ initial states:
   with open('brown50000.txt', 'r') as brownfile:
       browncorpus = brownfile.read().replace('\n', '')
 
-  alphabet = ' abcdefghijklmnopqrstuvwxyz'
-  brownmarkov = markovmodel.fromscratch(2, len(alphabet))
-  train_markov_model(brownmarkov,
-                     list(map_el_to_int(browncorpus, alphabet)),
+  randbrown_alphabet = ' abcdefghijklmnopqrstuvwxyz'
+  randbrown_markov = markovmodel.fromscratch(2, len(randbrown_alphabet))
+  train_markov_model(randbrown_markov,
+                     list(map_el_to_int(browncorpus, randbrown_alphabet)),
                      max_iterations=100)
 
-  print(brownmarkov)
+  print(randbrown_markov)
 #+END_SRC
 
 #+RESULTS:
@@ -967,7 +981,7 @@ initial states:
 
 
 #+BEGIN_SRC ipython :tangle no :exports results
-  markov_report(brownmarkov, alphabet)
+  markov_report(randbrown_markov, randbrown_alphabet)
 #+END_SRC
 
 #+RESULTS:
@@ -1009,6 +1023,177 @@ initial states:
 |---------------------------------------------------------------------------------------|-------------------------------------------|
 | { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } | { \textvisiblespace,  a,  e,  i,  o,  u } |
 :END:
+
+
+* Est-Républicain                                                    :export:
+Cette section s'appuie sur un corpus contenant des articles du journal l'Est Républicain, publiés en 1999.
+Le corpus est disponible à l'adresse suivante : http://www.cnrtl.fr/corpus/estrepublicain/.
+
+** Extraction du texte
+Les articles sont contenus dans des fichiers =XML=. Le script suivant est utilisé pour récupérer le texte des articles en ignorant le balisage.
+
+#+BEGIN_SRC ipython :tangle repextract.py :results silent :eval no-export :shebang "#!/usr/bin/env python3"
+  import xml.etree.ElementTree as ET
+  from itertools import chain
+
+  root = ET.parse('1999-05-17.xml').getroot()
+  articles = root.findall('./tei:text/tei:body/tei:div/tei:div/',
+                          {'tei': 'http://www.tei-c.org/ns/1.0'})
+
+  alphabet = ' aàâæbcçdeéèêëfghiîïjklmnoôœpqrstuùûüvwxyÿz'
+  # print(list(root))
+  # print(articles)
+
+  def filterspaces(iterable):
+      prevwasspace = True
+      for char in iterable:
+          if char == ' ':
+              if not prevwasspace:
+                  prevwasspace = True
+                  yield char
+          else:
+              yield char
+              prevwasspace = False
+
+
+  charbuffer = (char
+                for article in articles
+                for paragraph in article.itertext()
+                for char in paragraph.lower()
+                if char in alphabet)
+
+  with open('1999-05-17.txt', 'w') as output:
+      output.write(''.join(filterspaces(charbuffer)))
+#+END_SRC
+
+Cette approche a ses limites, par exemple, il y a beaucoup de 'h' isolés à cause de la notation des heures (exemple : de 20h à 20h30). Par ailleurs la suppression de certain caractères spéciaux mène à des juxtapositions non désirables (exemple : saint-mihiel \textrightarrow saintmihiel, l'heure \textrightarrow lheure).
+
+Il serait possible de créer des règles pour traiter ces cas particuliers. Cependant, ils semblent être statistiquement insignifiants, il n'est donc pas important de s'en soucier pour cette expérience.
+
+** Analyse du texte brut
+:PROPERTIES:
+:header-args:ipython: :tangle reprandom.py :session markexec :results output replace drawer
+:END:
+
+#+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports none
+  import numpy as np
+  from markov import *
+#+END_SRC
+
+#+BEGIN_SRC ipython :exports code
+  import numpy as np
+  from itertools import islice
+  with open('1999-05-17.txt', 'r') as repfile:
+      repcorpus = repfile.read().replace('\n', '')
+
+  repalphabet = ' aàâæbcçdeéèêëfghiîïjklmnoôœpqrstuùûüvwxyÿz'
+  repmarkov = markovmodel.fromscratch(2, len(repalphabet))
+  train_markov_model(repmarkov,
+                     list(islice(map_el_to_int(repcorpus, repalphabet), 0, 50000)),
+                     max_iterations=100)
+
+  print(repmarkov)
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+the model never stopped improving
+transition:
+[[0.47241321 0.52758679]
+ [0.45577766 0.54422234]]
+
+observation:
+[[1.57849628e-01 7.55122105e-02 5.18670668e-03 5.26265613e-04
+  0.00000000e+00 8.85286438e-03 3.43001664e-02 3.73819273e-04
+  3.45779998e-02 1.09182524e-01 2.46639999e-02 3.52788297e-03
+  1.27727811e-03 6.48403567e-05 1.06290400e-02 9.81480041e-03
+  1.01915148e-02 6.52544605e-02 2.85224661e-04 0.00000000e+00
+  2.49670749e-03 4.53711453e-04 5.72186986e-02 2.11263638e-02
+  5.28707584e-02 3.91697198e-02 5.84578412e-04 3.43205235e-04
+  2.39888694e-02 3.64837933e-03 6.39071685e-02 6.24936743e-02
+  5.63509640e-02 4.27763255e-02 1.72001606e-04 1.88031433e-04
+  0.00000000e+00 1.08306645e-02 1.70731208e-04 5.31865457e-03
+  3.27903020e-03 0.00000000e+00 5.40535869e-04]
+ [1.75467396e-01 6.13253887e-02 6.25537312e-03 4.40042109e-04
+  0.00000000e+00 9.09001429e-03 2.61366935e-02 3.85347205e-04
+  3.61481131e-02 1.27110756e-01 2.10038141e-02 2.61859199e-03
+  1.05871009e-03 5.58197651e-05 9.56862687e-03 8.70635575e-03
+  1.11767666e-02 5.22561278e-02 2.00936423e-04 0.00000000e+00
+  3.69578984e-03 3.90886116e-04 4.25720719e-02 2.38362267e-02
+  6.49671243e-02 4.81363926e-02 3.52389120e-04 2.99960132e-04
+  2.42710550e-02 6.98785074e-03 5.14442908e-02 6.17611922e-02
+  5.62198542e-02 4.57457077e-02 2.61469207e-04 1.73065539e-04
+  0.00000000e+00 1.17056804e-02 2.25288734e-04 4.94849239e-03
+  2.49806857e-03 0.00000000e+00 5.02270250e-04]]
+
+initial states:
+[[4.63253332e-06 9.99995367e-01]]
+:END:
+ 
+#+BEGIN_SRC ipython :exports results :tangle no
+  markov_report(repmarkov, repalphabet)
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+#+ATTR_LATEX: :align l l l
+| caractère         | État 1 (%) | État 2 (%) |
+|-------------------|------------|------------|
+| \textvisiblespace | $15.785$   | $17.547$   |
+| a                 | $7.551$    | $6.133$    |
+| à                 | $0.519$    | $0.626$    |
+| â                 | $0.053$    | $0.044$    |
+| æ                 | $0.000$    | $0.000$    |
+| b                 | $0.885$    | $0.909$    |
+| c                 | $3.430$    | $2.614$    |
+| ç                 | $0.037$    | $0.039$    |
+| d                 | $3.458$    | $3.615$    |
+| e                 | $10.918$   | $12.711$   |
+| é                 | $2.466$    | $2.100$    |
+| è                 | $0.353$    | $0.262$    |
+| ê                 | $0.128$    | $0.106$    |
+| ë                 | $0.006$    | $0.006$    |
+| f                 | $1.063$    | $0.957$    |
+| g                 | $0.981$    | $0.871$    |
+| h                 | $1.019$    | $1.118$    |
+| i                 | $6.525$    | $5.226$    |
+| î                 | $0.029$    | $0.020$    |
+| ï                 | $0.000$    | $0.000$    |
+| j                 | $0.250$    | $0.370$    |
+| k                 | $0.045$    | $0.039$    |
+| l                 | $5.722$    | $4.257$    |
+| m                 | $2.113$    | $2.384$    |
+| n                 | $5.287$    | $6.497$    |
+| o                 | $3.917$    | $4.814$    |
+| ô                 | $0.058$    | $0.035$    |
+| œ                 | $0.034$    | $0.030$    |
+| p                 | $2.399$    | $2.427$    |
+| q                 | $0.365$    | $0.699$    |
+| r                 | $6.391$    | $5.144$    |
+| s                 | $6.249$    | $6.176$    |
+| t                 | $5.635$    | $5.622$    |
+| u                 | $4.278$    | $4.575$    |
+| ù                 | $0.017$    | $0.026$    |
+| û                 | $0.019$    | $0.017$    |
+| ü                 | $0.000$    | $0.000$    |
+| v                 | $1.083$    | $1.171$    |
+| w                 | $0.017$    | $0.023$    |
+| x                 | $0.532$    | $0.495$    |
+| y                 | $0.328$    | $0.250$    |
+| ÿ                 | $0.000$    | $0.000$    |
+| z                 | $0.054$    | $0.050$    | 
+
+
+
+| Groupe 1                                                                                  | Groupe 2                                                                              | Hors groupes   |
+|-------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|----------------|
+| { a,  â,  c,  é,  è,  ê,  ë,  f,  g,  i,  î,  k,  l,  ô,  œ,  r,  s,  t,  û,  x,  y,  z } | { \textvisiblespace,  à,  b,  ç,  d,  e,  h,  j,  m,  n,  o,  p,  q,  u,  ù,  v,  w } | { æ, ï, ü, ÿ } |
+:END:
+
+À première vue, les résultats ne sont pas concluants. Peut-être qu'un linguiste saura interpréter ces résultats, mais il est plus probable que l'utilisation d'un grand nombre de caractères peu fréquents perturbe l'entrainement du modèle.
+
+* Sources
+Stamp, Mark. (2018). A Revealing Introduction to Hidden Markov Models. https://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf.
 
 * 100 iter on brown backup
 #+RESULTS:
