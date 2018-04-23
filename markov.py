@@ -406,13 +406,17 @@ def markov_alphabetical_analysis(markov, alphabet):
                           for index, letter in enumerate(alphabet)]
 
     letter_groups = [list() for _ in range(0, markov.ndim)]
+    ungroupables = []
 
-    for index, letter in enumerate(alphabet):
-        max = 0
+    for letterindex, letter in enumerate(alphabet):
+        maxindex = 0
         for state in range(1, markov.ndim):
-            if markov.observation_matrix[state, index] >\
-               markov.observation_matrix[max, index]:
-                max = state
-            letter_groups[max].append(letter)
+            if markov.observation_matrix[state, letterindex] >\
+               markov.observation_matrix[maxindex, letterindex]:
+                maxindex = state
+            if markov.observation_matrix[maxindex, letterindex] == 0:
+                ungroupables.append(letter)
+            else:
+                letter_groups[maxindex].append(letter)
 
-    return observation_scores, letter_groups
+    return observation_scores, letter_groups, ungroupables

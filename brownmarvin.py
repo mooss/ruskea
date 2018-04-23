@@ -13,11 +13,11 @@ marvin_initial = np.array([[0.51316, 0.48684]])
 with open('brown50000.txt', 'r') as marvinfile:
     marvin_corpus = marvinfile.read().replace('\n', '')
 
-alphabet = ' abcdefghijklmnopqrstuvwxyz'
-brownmarvin = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
+brown_alphabet = ' abcdefghijklmnopqrstuvwxyz'
+brown_marvin = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
 
-train_markov_model(brownmarvin,
-                   list(map_el_to_int(marvin_corpus, alphabet)),
+train_markov_model(brown_marvin,
+                   list(map_el_to_int(marvin_corpus, brown_alphabet)),
                    max_iterations=100)
 
-print(brownmarvin)
+print(brown_marvin)

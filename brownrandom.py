@@ -5,10 +5,10 @@ from markov import *
 with open('brown50000.txt', 'r') as brownfile:
     browncorpus = brownfile.read().replace('\n', '')
 
-alphabet = ' abcdefghijklmnopqrstuvwxyz'
-brownmarkov = markovmodel.fromscratch(2, len(alphabet))
-train_markov_model(brownmarkov,
-                   list(map_el_to_int(browncorpus, alphabet)),
+randbrown_alphabet = ' abcdefghijklmnopqrstuvwxyz'
+randbrown_markov = markovmodel.fromscratch(2, len(randbrown_alphabet))
+train_markov_model(randbrown_markov,
+                   list(map_el_to_int(browncorpus, randbrown_alphabet)),
                    max_iterations=100)
 
-print(brownmarkov)
+print(randbrown_markov)
