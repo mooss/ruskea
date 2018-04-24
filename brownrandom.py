@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-import numpy as np
-from markov import *
+from markov import markovmodel,train_markov_model, map_el_to_int, markov_alphabetical_analysis
 
 with open('brown50000.txt', 'r') as brownfile:
-    browncorpus = brownfile.read().replace('\n', '')
+    corpus = brownfile.read().replace('\n', '')
 
-randbrown_alphabet = ' abcdefghijklmnopqrstuvwxyz'
-randbrown_markov = markovmodel.fromscratch(2, len(randbrown_alphabet))
-train_markov_model(randbrown_markov,
-                   list(map_el_to_int(browncorpus, randbrown_alphabet)),
+alphabet = ' abcdefghijklmnopqrstuvwxyz'
+
+model = markovmodel.fromscratch(2, len(alphabet))
+print(model)
+train_markov_model(model,
+                   list(map_el_to_int(corpus, alphabet)),
                    max_iterations=100)
-
-print(randbrown_markov)
+table, groups, _ = markov_alphabetical_analysis(model, alphabet)
+print(table)
+print(groups)

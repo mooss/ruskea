@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
+
 from markov import *
 
 marvin_transition = np.array([[0.47468, 0.52532],
@@ -16,6 +17,7 @@ with open('brown50000.txt', 'r') as marvinfile:
 brown_alphabet = ' abcdefghijklmnopqrstuvwxyz'
 brown_marvin = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
 
+print(brown_marvin)
 train_markov_model(brown_marvin,
                    list(map_el_to_int(marvin_corpus, brown_alphabet)),
                    max_iterations=100)

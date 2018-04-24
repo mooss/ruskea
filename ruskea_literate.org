@@ -2,7 +2,7 @@
 #+AUTHOR: Félix Jamet
 #+OPTIONS: toc:2
 #+LANGUAGE: fr
-#+PROPERTY: header-args:ipython :session markexec :results silent :tangle markov.py :eval no-export
+#+PROPERTY: header-args:ipython :session markexec :results silent :tangle markov.py :eval no-export :noweb yes
 
 * Consignes
 
@@ -77,7 +77,7 @@ Autrement dit, les MMC vont permettre de maximiser le nombre d'états corrects.
 ** Problème 3
 Étant donné une chaine d'observation, un nombre d'états et un nombre de symboles, trouver le MMC maximisant la probabilité de cette chaine d'observation, autrement dit, entrainer un HMM pour le faire correspondre aux observations.
 
-*  Réimplémentation de Baum-Welch
+* Réimplémentation de Baum-Welch
 :PROPERTIES:
 :header-args:ipython: :session markexec :results silent :tangle markov.py
 :END:
@@ -87,6 +87,7 @@ Autrement dit, les MMC vont permettre de maximiser le nombre d'états corrects.
   import math
   import random
   import numpy as np
+  from copy import deepcopy
 
   def stochastic_variation(mat, epsilon):
       """Slightly changes the values of a matrix while making sure that the sum of the rows are kept the same.
@@ -99,20 +100,25 @@ Autrement dit, les MMC vont permettre de maximiser le nombre d'états corrects.
       epsilon : float
           Maximal variation.
       """
+      random.seed()
       for row in mat:
           delta = 0
           for i in range(0, len(row)):
-              if delta > epsilon / 2:
-                  nextvariation = random.uniform(-epsilon, 0)
-              elif delta < -epsilon / 2:
-                  nextvariation = random.uniform(0, epsilon)
-              else:
-                  nextvariation = random.uniform(-epsilon, epsilon)
+              # if delta > epsilon / 2:
+              #     nextvariation = random.uniform(-epsilon, 0)
+              # elif delta < -epsilon / 2:
+              #     nextvariation = random.uniform(0, epsilon)
+              # else:
+              #     nextvariation = random.uniform(-epsilon, epsilon)
 
-              delta += nextvariation
-              row[i] += nextvariation
-
-          row[-1] -= delta
+              # delta += nextvariation
+              nextvalue = random.gauss(row[i], epsilon)
+              delta += nextvalue - row[i]
+              row[i] = nextvalue
+          meandelta = delta/len(row)
+          for i in range(0, len(row)):
+              row[i] -= meandelta
+    
 
   class markovmodel(object):
       def fromscratch(N, M):
@@ -138,9 +144,9 @@ Autrement dit, les MMC vont permettre de maximiser le nombre d'états corrects.
           observation = np.full((N, M), inverseM)
           initial = np.full((1, N), inverseN)
 
-          stochastic_variation(transition, inverseN / 5)
-          stochastic_variation(observation, inverseM / 5)
-          stochastic_variation(initial, inverseN / 5)
+          stochastic_variation(transition, inverseN / 10)
+          stochastic_variation(observation, inverseM / 10)
+          stochastic_variation(initial, inverseN / 10)
 
           return markovmodel(transition, observation, initial)
 
@@ -231,9 +237,9 @@ Autrement dit, les MMC vont permettre de maximiser le nombre d'états corrects.
 #+END_SRC
 
 #+RESULTS:
-: [[0.33782189 0.27527623 0.38690188]
-:  [0.37697272 0.30977383 0.31325345]
-:  [0.36755099 0.26891406 0.36353495]]
+: [[0.33018352 0.33518252 0.33463396]
+:  [0.33353123 0.33100466 0.33546411]
+:  [0.33013537 0.33643941 0.33342522]]
 
 **** Exemple prédiction de température
 Il s'agit ici de tester la création des chaines de markov en utilisant l'exemple de prédiction de température.
@@ -653,18 +659,19 @@ On arrête la boucle de réestimation lorsque un nombre pré-déterminé a été
       -------
       out : 
       """
-      prevlogprob = float('-inf')
-      logprob = reestimate_markov_model(markov, observations)
+      _, scale_factors = alpha_pass(markov, observations)
+      bestlogprob = log_observation_sequence_probability(scale_factors)
+      bestmodel = deepcopy(markov)
 
       for i in range(1, max_iterations):
-          if(logprob <= prevlogprob):
-              print('the model stopped improving at iteration', i)
-              return 
-
-          prevlogprob = logprob
           logprob = reestimate_markov_model(markov, observations)
           markov.ensure_row_stochasticity()
-      print('the model never stopped improving')
+          if logprob > bestlogprob:
+              bestmodel = deepcopy(markov)
+              bestlogprob = logprob
+
+      markov = deepcopy(bestmodel)
+      print('bestprob', bestlogprob)
 #+END_SRC
 
 *** Test
@@ -754,13 +761,82 @@ initial states:
 
 #+END_SRC
 
+* noweb
+:PROPERTIES:
+:header-args:ipython: :tangle no :session none :results silent :eval never
+:END:
+
+** corpuses
+#+NAME: browncorpus
+#+BEGIN_SRC ipython
+  with open('brown50000.txt', 'r') as brownfile:
+      corpus = brownfile.read().replace('\n', '')
+#+END_SRC
+
+** alphabets
+
+#+NAME: latinalphabet
+#+BEGIN_SRC ipython
+  alphabet = ' abcdefghijklmnopqrstuvwxyz'
+#+END_SRC
+
+** Autres
+
+#+NAME: markovimport
+#+BEGIN_SRC ipython
+  from markov import markovmodel,train_markov_model, map_el_to_int, markov_alphabetical_analysis
+#+END_SRC
+
+#+NAME: trainfromscratch
+#+BEGIN_SRC ipython
+  model = markovmodel.fromscratch(2, len(alphabet))
+  print(model)
+  train_markov_model(model,
+                     list(map_el_to_int(corpus, alphabet)),
+                     max_iterations=100)
+  table, groups, _ = markov_alphabetical_analysis(model, alphabet)
+  print(table)
+  print(groups)
+#+END_SRC
+
+#+NAME: markov_report
+#+BEGIN_SRC ipython
+  def latexify(char):
+      if char == ' ':
+          return '\\textvisiblespace'
+      return char
+
+
+  scoretable, groups, ungroupables = markov_alphabetical_analysis(model, alphabet)
+  scoretable = [[latexify(line[0]),
+                 ,*('${:.3f}$'.format(probas * 100) for probas in line[1:])]
+                for line in scoretable]
+  scoretable.insert(0, ['caractère', 'État 1 (%)', 'État 2 (%)'])
+  print('#+ATTR_LATEX: :align l l l')
+  print(orgmodetable(scoretable, header=True), '\n\n\n')
+
+  groupstable = [['{ ' + ',  '.join((latexify(char) for char in group)) + ' }'
+                    for group in groups] ]
+  groupstable.insert(0, ['Groupe 1', 'Groupe 2'])
+
+  if len(ungroupables) > 0:
+      groupstable[0].insert(
+          len(ungroupables), 'Hors groupes')
+      groupstable[1].insert(
+          len(ungroupables), '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
+  print(orgmodetable(groupstable, header=True))
+#+END_SRC
+
 * /Brown corpus/                                 :export:
 Dans cette section les fonctionnalités offertes par =markov.py= sont utilisées pour reproduire l'expérience de "Marvin le martien" (Stamp 2018)
+
+
+
 ** Extraction des 50 000 premiers caractères du /Brown corpus/
 
 La première étape est d'extraire les caractères nous intéressant depuis le /Brown corpus/.
 En effet, le /Brown corpus/ est distribué avec les annotations intégrées et il faut donc les supprimer.
-Les 50000 premiers carctères de ce corpus sont écrits dans le fichier =brown50000.txt=.
+Les 50000 premiers caractères de ce corpus sont écrits dans le fichier =brown50000.txt=.
 #+BEGIN_SRC ipython :session brownextract :results silent :tangle brownextract.py :eval never :shebang "#!/usr/bin/env python3"
   import nltk
   nltk.download('brown')
@@ -801,7 +877,6 @@ Les 50000 premiers carctères de ce corpus sont écrits dans le fichier =brown50
 
 #+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports code :tangle brownmarvin.py
   import numpy as np
-  from markov import *
 #+END_SRC
 
 ** Matrices prédéfinies
@@ -810,7 +885,7 @@ Les 50000 premiers carctères de ce corpus sont écrits dans le fichier =brown50
 :END:
 
 #+BEGIN_SRC ipython :exports code
-
+  from markov import *
 
   marvin_transition = np.array([[0.47468, 0.52532],
                                 [0.51656, 0.48344]])
@@ -826,6 +901,7 @@ Les 50000 premiers carctères de ce corpus sont écrits dans le fichier =brown50
   brown_alphabet = ' abcdefghijklmnopqrstuvwxyz'
   brown_marvin = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
 
+  print(brown_marvin)
   train_markov_model(brown_marvin,
                      list(map_el_to_int(marvin_corpus, brown_alphabet)),
                      max_iterations=100)
@@ -835,29 +911,43 @@ Les 50000 premiers carctères de ce corpus sont écrits dans le fichier =brown50
 
 #+RESULTS:
 :RESULTS:
-the model never stopped improving
 transition:
-[[0.23368789 0.76631211]
- [0.70597863 0.29402137]]
+[[0.47468 0.52532]
+ [0.51656 0.48344]]
 
 observation:
-[[2.80687985e-01 1.42581906e-01 1.40629293e-13 6.66524349e-04
-  3.56911264e-06 2.25725373e-01 1.37666921e-17 4.42155954e-03
-  4.87498731e-04 1.27752553e-01 6.73394223e-30 2.92496160e-03
-  5.50924144e-05 2.54038203e-14 9.00794057e-12 1.37718752e-01
-  1.83313919e-03 1.75675908e-23 5.22460779e-15 1.36925065e-04
-  2.03105974e-02 4.65458472e-02 3.21539099e-30 1.30524222e-18
-  6.21332760e-19 8.14771643e-03 4.60426291e-39]
- [6.47562560e-02 1.73259604e-05 2.12112202e-02 5.05695235e-02
-  6.67813143e-02 5.46638241e-10 3.43145283e-02 2.29783808e-02
-  7.06007667e-02 1.83269804e-12 2.26714128e-03 5.02886564e-03
-  7.28051731e-02 3.72349136e-02 1.14817257e-01 1.92319303e-06
-  3.28946287e-02 1.53704494e-03 1.00830148e-01 1.07044308e-01
-  1.32110256e-01 5.77443034e-07 1.63311025e-02 2.14417769e-02
-  4.53428257e-03 1.87385009e-02 1.15278370e-03]]
+[[0.03688 0.03735 0.03408 0.03455 0.03828 0.03782 0.03922 0.03688 0.03408
+  0.03875 0.04062 0.03735 0.03968 0.03548 0.03735 0.04062 0.03595 0.03641
+  0.03408 0.04062 0.03548 0.03922 0.04062 0.03455 0.03595 0.03408 0.03408]
+ [0.03397 0.03909 0.03537 0.03537 0.03909 0.03583 0.0363  0.04048 0.03537
+  0.03816 0.03909 0.0349  0.03723 0.03537 0.03909 0.03397 0.03397 0.03816
+  0.03676 0.04048 0.03443 0.03537 0.03955 0.03816 0.03723 0.03769 0.03955]]
 
 initial states:
-[[1.00000000e+00 1.45406913e-11]]
+[[0.51316 0.48684]]
+bestprob -137446.21950411287
+transition:
+[[0.23380594 0.76619406]
+ [0.70619312 0.29380688]]
+
+observation:
+[[2.80663694e-01 1.42545160e-01 2.49692361e-13 6.87847936e-04
+  4.35693343e-06 2.25671596e-01 3.04678198e-17 4.44818727e-03
+  4.99289965e-04 1.27722118e-01 2.60994980e-29 2.92718516e-03
+  6.31027224e-05 4.75214656e-14 1.52968215e-11 1.37685546e-01
+  1.85592672e-03 5.64893247e-23 1.02389935e-14 1.51700292e-04
+  2.03887624e-02 4.65346022e-02 1.31845386e-29 2.88806231e-18
+  1.39398404e-18 8.15092461e-03 2.66239538e-38]
+ [6.47312285e-02 1.98900890e-05 2.12158779e-02 5.05608272e-02
+  6.67952520e-02 8.33899093e-10 3.43220634e-02 2.29579122e-02
+  7.06052946e-02 3.08757982e-12 2.26763913e-03 5.02727812e-03
+  7.28137650e-02 3.72430901e-02 1.14842470e-01 2.28922444e-06
+  3.28804456e-02 1.53738246e-03 1.00852289e-01 1.07054166e-01
+  1.32062759e-01 7.21326070e-07 1.63346886e-02 2.14464853e-02
+  4.53527826e-03 1.87378694e-02 1.15303684e-03]]
+
+initial states:
+[[1.00000000e+00 2.08732228e-11]]
 :END:
 
 #+BEGIN_SRC ipython :tangle no :exports results
@@ -894,31 +984,31 @@ initial states:
 #+ATTR_LATEX: :align l l l
 | caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
-| \textvisiblespace | $28.069$   | $6.476$    |
-| a                 | $14.258$   | $0.002$    |
-| b                 | $0.000$    | $2.121$    |
-| c                 | $0.067$    | $5.057$    |
-| d                 | $0.000$    | $6.678$    |
-| e                 | $22.573$   | $0.000$    |
-| f                 | $0.000$    | $3.431$    |
-| g                 | $0.442$    | $2.298$    |
-| h                 | $0.049$    | $7.060$    |
-| i                 | $12.775$   | $0.000$    |
+| \textvisiblespace | $28.066$   | $6.473$    |
+| a                 | $14.255$   | $0.002$    |
+| b                 | $0.000$    | $2.122$    |
+| c                 | $0.069$    | $5.056$    |
+| d                 | $0.000$    | $6.680$    |
+| e                 | $22.567$   | $0.000$    |
+| f                 | $0.000$    | $3.432$    |
+| g                 | $0.445$    | $2.296$    |
+| h                 | $0.050$    | $7.061$    |
+| i                 | $12.772$   | $0.000$    |
 | j                 | $0.000$    | $0.227$    |
-| k                 | $0.292$    | $0.503$    |
+| k                 | $0.293$    | $0.503$    |
 | l                 | $0.006$    | $7.281$    |
-| m                 | $0.000$    | $3.723$    |
-| n                 | $0.000$    | $11.482$   |
-| o                 | $13.772$   | $0.000$    |
-| p                 | $0.183$    | $3.289$    |
+| m                 | $0.000$    | $3.724$    |
+| n                 | $0.000$    | $11.484$   |
+| o                 | $13.769$   | $0.000$    |
+| p                 | $0.186$    | $3.288$    |
 | q                 | $0.000$    | $0.154$    |
-| r                 | $0.000$    | $10.083$   |
-| s                 | $0.014$    | $10.704$   |
-| t                 | $2.031$    | $13.211$   |
-| u                 | $4.655$    | $0.000$    |
+| r                 | $0.000$    | $10.085$   |
+| s                 | $0.015$    | $10.705$   |
+| t                 | $2.039$    | $13.206$   |
+| u                 | $4.653$    | $0.000$    |
 | v                 | $0.000$    | $1.633$    |
-| w                 | $0.000$    | $2.144$    |
-| x                 | $0.000$    | $0.453$    |
+| w                 | $0.000$    | $2.145$    |
+| x                 | $0.000$    | $0.454$    |
 | y                 | $0.815$    | $1.874$    |
 | z                 | $0.000$    | $0.115$    | 
 
@@ -931,57 +1021,48 @@ initial states:
 
 ** Matrices aléatoires
 :PROPERTIES:
-:header-args:ipython: :tangle brownrandom.py :session markexec :results output replace drawer
+:header-args:ipython: :session brownrandomexec :results output replace drawer
 :END:
 
-#+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports none
-  import numpy as np
-  from markov import *
-#+END_SRC
 
-#+BEGIN_SRC ipython :exports code
-  with open('brown50000.txt', 'r') as brownfile:
-      browncorpus = brownfile.read().replace('\n', '')
+#+BEGIN_SRC ipython :exports code :noweb yes :tangle brownrandom.py :shebang "#!/usr/bin/env python3"
+  <<markovimport>>
 
-  randbrown_alphabet = ' abcdefghijklmnopqrstuvwxyz'
-  randbrown_markov = markovmodel.fromscratch(2, len(randbrown_alphabet))
-  train_markov_model(randbrown_markov,
-                     list(map_el_to_int(browncorpus, randbrown_alphabet)),
-                     max_iterations=100)
+  <<browncorpus>>
 
-  print(randbrown_markov)
+  <<latinalphabet>>
+
+  <<trainfromscratch>>
+
 #+END_SRC
 
 #+RESULTS:
 :RESULTS:
-the model never stopped improving
 transition:
-[[0.28837335 0.71162665]
- [0.71095592 0.28904408]]
+[[0.5042994  0.4957006 ]
+ [0.46535633 0.53464367]]
 
 observation:
-[[7.54755751e-03 1.40485662e-04 2.20908569e-02 5.32790551e-02
-  6.95541835e-02 1.91664370e-04 3.57375638e-02 2.72596989e-02
-  6.36534526e-02 4.34397900e-17 2.36116043e-03 5.39908893e-03
-  7.40628563e-02 3.87790586e-02 1.19578757e-01 1.47920197e-05
-  3.56431414e-02 1.60078673e-03 1.05011610e-01 1.11599242e-01
-  1.53938026e-01 4.04993202e-11 1.70083590e-02 2.23309749e-02
-  4.72232061e-03 2.72947175e-02 1.20059005e-03]
- [3.28907651e-01 1.36557928e-01 1.91317630e-15 2.71174470e-05
-  5.33249065e-12 2.16150870e-01 3.65173356e-22 9.13285915e-04
-  1.03331655e-02 1.22464707e-01 1.57810746e-38 2.64237151e-03
-  1.81272459e-03 7.69011573e-13 1.15371370e-08 1.32005615e-01
-  3.74207030e-04 1.44781355e-31 9.40813201e-11 1.55978877e-05
-  3.13621337e-03 4.46198542e-02 1.48809107e-28 1.60976154e-30
-  2.47067688e-10 3.86794210e-05 4.37206294e-42]]
+[[0.03058812 0.0337808  0.0369601  0.03919405 0.03062829 0.03641803
+  0.04038028 0.03355693 0.03827502 0.03990509 0.03068688 0.03427885
+  0.0387205  0.0425566  0.03438756 0.04151139 0.03630166 0.0413063
+  0.03727868 0.03852866 0.03967864 0.03107869 0.04034014 0.03815457
+  0.04228158 0.0388024  0.03442018]
+ [0.03597532 0.03419201 0.03027041 0.03737307 0.03544022 0.0380107
+  0.03919648 0.03979279 0.03821221 0.03977158 0.03718207 0.03323748
+  0.04055947 0.04042318 0.04095177 0.03726813 0.03592023 0.029822
+  0.03382096 0.04019688 0.03821241 0.03778573 0.04141545 0.03279016
+  0.04237958 0.03159291 0.03820679]]
 
 initial states:
-[[1.75460366e-146 1.00000000e+000]]
+[[0.46610465 0.53389535]]
+bestprob -141839.81470665726
+([[' ', 0.16555189761632066, 0.17079257783110852], ['a', 0.06832880441352743, 0.06842778214345126], ['b', 0.012528797805341243, 0.009691743916032882], ['c', 0.028547379703253356, 0.024912933880676887], ['d', 0.026096735407615382, 0.0426075006886916], ['e', 0.1041686651163447, 0.111909217806126], ['f', 0.021057612682942775, 0.014964119462766864], ['g', 0.010455735482342394, 0.017362981306862656], ['h', 0.03757809799243164, 0.03643903395830685], ['i', 0.05885229660182649, 0.06344205061449613], ['j', 0.0009081064156945822, 0.0014262929529604029], ['k', 0.004130391245479934, 0.003920095715495962], ['l', 0.03845607619664694, 0.03743522982774367], ['m', 0.022516726487133588, 0.016539298731269737], ['n', 0.050008178911988756, 0.06859398073054745], ['o', 0.07553766838497544, 0.05743881586411798], ['p', 0.02091468368492243, 0.015360386312954628], ['q', 0.0007323536036915315, 0.0008612874816479736], ['r', 0.057720781677194286, 0.04773422643321494], ['s', 0.05343439349336506, 0.05790569300838245], ['t', 0.08030566119286738, 0.07686613632517347], ['u', 0.02297882235133295, 0.021723730027442472], ['v', 0.008769116172705432, 0.008256422520160416], ['w', 0.012408131432007237, 0.010029730828656542], ['x', 0.0024781808922308543, 0.002253005947771991], ['y', 0.014987897955349494, 0.01245753361956629], ['z', 0.0005468070804601338, 0.0006481920643808612]], [['b', 'c', 'f', 'h', 'k', 'l', 'm', 'o', 'p', 'r', 't', 'u', 'v', 'w', 'x', 'y'], [' ', 'a', 'd', 'e', 'g', 'i', 'j', 'n', 'q', 's', 'z']], [])
 :END:
 
 
-#+BEGIN_SRC ipython :tangle no :exports results
-  markov_report(randbrown_markov, randbrown_alphabet)
+#+BEGIN_SRC ipython :tangle no :exports results :noweb yes
+  <<markov_report>>
 #+END_SRC
 
 #+RESULTS:
@@ -989,39 +1070,39 @@ initial states:
 #+ATTR_LATEX: :align l l l
 | caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
-| \textvisiblespace | $0.755$    | $32.891$   |
-| a                 | $0.014$    | $13.656$   |
-| b                 | $2.209$    | $0.000$    |
-| c                 | $5.328$    | $0.003$    |
-| d                 | $6.955$    | $0.000$    |
-| e                 | $0.019$    | $21.615$   |
-| f                 | $3.574$    | $0.000$    |
-| g                 | $2.726$    | $0.091$    |
-| h                 | $6.365$    | $1.033$    |
-| i                 | $0.000$    | $12.246$   |
-| j                 | $0.236$    | $0.000$    |
-| k                 | $0.540$    | $0.264$    |
-| l                 | $7.406$    | $0.181$    |
-| m                 | $3.878$    | $0.000$    |
-| n                 | $11.958$   | $0.000$    |
-| o                 | $0.001$    | $13.201$   |
-| p                 | $3.564$    | $0.037$    |
-| q                 | $0.160$    | $0.000$    |
-| r                 | $10.501$   | $0.000$    |
-| s                 | $11.160$   | $0.002$    |
-| t                 | $15.394$   | $0.314$    |
-| u                 | $0.000$    | $4.462$    |
-| v                 | $1.701$    | $0.000$    |
-| w                 | $2.233$    | $0.000$    |
-| x                 | $0.472$    | $0.000$    |
-| y                 | $2.729$    | $0.004$    |
-| z                 | $0.120$    | $0.000$    | 
+| \textvisiblespace | $16.555$   | $17.079$   |
+| a                 | $6.833$    | $6.843$    |
+| b                 | $1.253$    | $0.969$    |
+| c                 | $2.855$    | $2.491$    |
+| d                 | $2.610$    | $4.261$    |
+| e                 | $10.417$   | $11.191$   |
+| f                 | $2.106$    | $1.496$    |
+| g                 | $1.046$    | $1.736$    |
+| h                 | $3.758$    | $3.644$    |
+| i                 | $5.885$    | $6.344$    |
+| j                 | $0.091$    | $0.143$    |
+| k                 | $0.413$    | $0.392$    |
+| l                 | $3.846$    | $3.744$    |
+| m                 | $2.252$    | $1.654$    |
+| n                 | $5.001$    | $6.859$    |
+| o                 | $7.554$    | $5.744$    |
+| p                 | $2.091$    | $1.536$    |
+| q                 | $0.073$    | $0.086$    |
+| r                 | $5.772$    | $4.773$    |
+| s                 | $5.343$    | $5.791$    |
+| t                 | $8.031$    | $7.687$    |
+| u                 | $2.298$    | $2.172$    |
+| v                 | $0.877$    | $0.826$    |
+| w                 | $1.241$    | $1.003$    |
+| x                 | $0.248$    | $0.225$    |
+| y                 | $1.499$    | $1.246$    |
+| z                 | $0.055$    | $0.065$    | 
 
 
 
-| Groupe 1                                                                              | Groupe 2                                  |
-|---------------------------------------------------------------------------------------|-------------------------------------------|
-| { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } | { \textvisiblespace,  a,  e,  i,  o,  u } |
+| Groupe 1                                                          | Groupe 2                                                      |
+|-------------------------------------------------------------------|---------------------------------------------------------------|
+| { b,  c,  f,  h,  k,  l,  m,  o,  p,  r,  t,  u,  v,  w,  x,  y } | { \textvisiblespace,  a,  d,  e,  g,  i,  j,  n,  q,  s,  z } |
 :END:
 
 
@@ -1076,7 +1157,6 @@ Il serait possible de créer des règles pour traiter ces cas particuliers. Cepe
 :END:
 
 #+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports none
-  import numpy as np
   from markov import *
 #+END_SRC
 
@@ -1097,37 +1177,37 @@ Il serait possible de créer des règles pour traiter ces cas particuliers. Cepe
 
 #+RESULTS:
 :RESULTS:
-the model never stopped improving
+the model stopped improving at iteration 85
 transition:
-[[0.47241321 0.52758679]
- [0.45577766 0.54422234]]
+[[0.49721192 0.50278808]
+ [0.49819695 0.50180305]]
 
 observation:
-[[1.57849628e-01 7.55122105e-02 5.18670668e-03 5.26265613e-04
-  0.00000000e+00 8.85286438e-03 3.43001664e-02 3.73819273e-04
-  3.45779998e-02 1.09182524e-01 2.46639999e-02 3.52788297e-03
-  1.27727811e-03 6.48403567e-05 1.06290400e-02 9.81480041e-03
-  1.01915148e-02 6.52544605e-02 2.85224661e-04 0.00000000e+00
-  2.49670749e-03 4.53711453e-04 5.72186986e-02 2.11263638e-02
-  5.28707584e-02 3.91697198e-02 5.84578412e-04 3.43205235e-04
-  2.39888694e-02 3.64837933e-03 6.39071685e-02 6.24936743e-02
-  5.63509640e-02 4.27763255e-02 1.72001606e-04 1.88031433e-04
-  0.00000000e+00 1.08306645e-02 1.70731208e-04 5.31865457e-03
-  3.27903020e-03 0.00000000e+00 5.40535869e-04]
- [1.75467396e-01 6.13253887e-02 6.25537312e-03 4.40042109e-04
-  0.00000000e+00 9.09001429e-03 2.61366935e-02 3.85347205e-04
-  3.61481131e-02 1.27110756e-01 2.10038141e-02 2.61859199e-03
-  1.05871009e-03 5.58197651e-05 9.56862687e-03 8.70635575e-03
-  1.11767666e-02 5.22561278e-02 2.00936423e-04 0.00000000e+00
-  3.69578984e-03 3.90886116e-04 4.25720719e-02 2.38362267e-02
-  6.49671243e-02 4.81363926e-02 3.52389120e-04 2.99960132e-04
-  2.42710550e-02 6.98785074e-03 5.14442908e-02 6.17611922e-02
-  5.62198542e-02 4.57457077e-02 2.61469207e-04 1.73065539e-04
-  0.00000000e+00 1.17056804e-02 2.25288734e-04 4.94849239e-03
-  2.49806857e-03 0.00000000e+00 5.02270250e-04]]
+[[1.67805670e-01 6.76343963e-02 5.73967675e-03 4.77650863e-04
+  0.00000000e+00 8.92741759e-03 2.97674329e-02 3.79860741e-04
+  3.55224273e-02 1.18587091e-01 2.26664535e-02 3.02312068e-03
+  1.14897570e-03 5.96363655e-05 1.00330039e-02 9.24379772e-03
+  1.07551794e-02 5.82810450e-02 2.40733561e-04 0.00000000e+00
+  3.11940983e-03 4.19614066e-04 4.91414996e-02 2.26391379e-02
+  5.90833701e-02 4.39128805e-02 4.55792601e-04 3.20398840e-04
+  2.41390581e-02 5.67033482e-03 5.70517465e-02 6.22524447e-02
+  5.62603990e-02 4.49573656e-02 2.20142521e-04 1.78100684e-04
+  0.00000000e+00 1.12049340e-02 2.00662626e-04 5.09937487e-03
+  2.85940683e-03 0.00000000e+00 5.20356678e-04]
+ [1.66802234e-01 6.81645272e-02 5.78025203e-03 4.82337237e-04
+  0.00000000e+00 9.03228120e-03 3.00717694e-02 3.80145494e-04
+  3.53192041e-02 1.19013317e-01 2.27336893e-02 3.05678573e-03
+  1.17094688e-03 6.03615100e-05 1.00869491e-02 9.19660086e-03
+  1.06853524e-02 5.82801151e-02 2.39277853e-04 0.00000000e+00
+  3.16046479e-03 4.20390714e-04 4.95774865e-02 2.25218460e-02
+  5.96352845e-02 4.40473769e-02 4.64178193e-04 3.19611107e-04
+  2.41414099e-02 5.21186863e-03 5.73878520e-02 6.19501686e-02
+  5.63005338e-02 4.37890222e-02 2.19863119e-04 1.81885586e-04
+  0.00000000e+00 1.13944240e-02 1.99347352e-04 5.14053852e-03
+  2.86064423e-03 0.00000000e+00 5.19656833e-04]]
 
 initial states:
-[[4.63253332e-06 9.99995367e-01]]
+[[0.64613372 0.35386628]]
 :END:
  
 #+BEGIN_SRC ipython :exports results :tangle no
@@ -1139,58 +1219,182 @@ initial states:
 #+ATTR_LATEX: :align l l l
 | caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
-| \textvisiblespace | $15.785$   | $17.547$   |
-| a                 | $7.551$    | $6.133$    |
-| à                 | $0.519$    | $0.626$    |
-| â                 | $0.053$    | $0.044$    |
+| \textvisiblespace | $16.781$   | $16.680$   |
+| a                 | $6.763$    | $6.816$    |
+| à                 | $0.574$    | $0.578$    |
+| â                 | $0.048$    | $0.048$    |
 | æ                 | $0.000$    | $0.000$    |
-| b                 | $0.885$    | $0.909$    |
-| c                 | $3.430$    | $2.614$    |
-| ç                 | $0.037$    | $0.039$    |
-| d                 | $3.458$    | $3.615$    |
-| e                 | $10.918$   | $12.711$   |
-| é                 | $2.466$    | $2.100$    |
-| è                 | $0.353$    | $0.262$    |
-| ê                 | $0.128$    | $0.106$    |
+| b                 | $0.893$    | $0.903$    |
+| c                 | $2.977$    | $3.007$    |
+| ç                 | $0.038$    | $0.038$    |
+| d                 | $3.552$    | $3.532$    |
+| e                 | $11.859$   | $11.901$   |
+| é                 | $2.267$    | $2.273$    |
+| è                 | $0.302$    | $0.306$    |
+| ê                 | $0.115$    | $0.117$    |
 | ë                 | $0.006$    | $0.006$    |
-| f                 | $1.063$    | $0.957$    |
-| g                 | $0.981$    | $0.871$    |
-| h                 | $1.019$    | $1.118$    |
-| i                 | $6.525$    | $5.226$    |
-| î                 | $0.029$    | $0.020$    |
+| f                 | $1.003$    | $1.009$    |
+| g                 | $0.924$    | $0.920$    |
+| h                 | $1.076$    | $1.069$    |
+| i                 | $5.828$    | $5.828$    |
+| î                 | $0.024$    | $0.024$    |
 | ï                 | $0.000$    | $0.000$    |
-| j                 | $0.250$    | $0.370$    |
-| k                 | $0.045$    | $0.039$    |
-| l                 | $5.722$    | $4.257$    |
-| m                 | $2.113$    | $2.384$    |
-| n                 | $5.287$    | $6.497$    |
-| o                 | $3.917$    | $4.814$    |
-| ô                 | $0.058$    | $0.035$    |
-| œ                 | $0.034$    | $0.030$    |
-| p                 | $2.399$    | $2.427$    |
-| q                 | $0.365$    | $0.699$    |
-| r                 | $6.391$    | $5.144$    |
-| s                 | $6.249$    | $6.176$    |
-| t                 | $5.635$    | $5.622$    |
-| u                 | $4.278$    | $4.575$    |
-| ù                 | $0.017$    | $0.026$    |
-| û                 | $0.019$    | $0.017$    |
+| j                 | $0.312$    | $0.316$    |
+| k                 | $0.042$    | $0.042$    |
+| l                 | $4.914$    | $4.958$    |
+| m                 | $2.264$    | $2.252$    |
+| n                 | $5.908$    | $5.964$    |
+| o                 | $4.391$    | $4.405$    |
+| ô                 | $0.046$    | $0.046$    |
+| œ                 | $0.032$    | $0.032$    |
+| p                 | $2.414$    | $2.414$    |
+| q                 | $0.567$    | $0.521$    |
+| r                 | $5.705$    | $5.739$    |
+| s                 | $6.225$    | $6.195$    |
+| t                 | $5.626$    | $5.630$    |
+| u                 | $4.496$    | $4.379$    |
+| ù                 | $0.022$    | $0.022$    |
+| û                 | $0.018$    | $0.018$    |
 | ü                 | $0.000$    | $0.000$    |
-| v                 | $1.083$    | $1.171$    |
-| w                 | $0.017$    | $0.023$    |
-| x                 | $0.532$    | $0.495$    |
-| y                 | $0.328$    | $0.250$    |
+| v                 | $1.120$    | $1.139$    |
+| w                 | $0.020$    | $0.020$    |
+| x                 | $0.510$    | $0.514$    |
+| y                 | $0.286$    | $0.286$    |
 | ÿ                 | $0.000$    | $0.000$    |
-| z                 | $0.054$    | $0.050$    | 
+| z                 | $0.052$    | $0.052$    | 
 
 
 
-| Groupe 1                                                                                  | Groupe 2                                                                              | Hors groupes   |
-|-------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|----------------|
-| { a,  â,  c,  é,  è,  ê,  ë,  f,  g,  i,  î,  k,  l,  ô,  œ,  r,  s,  t,  û,  x,  y,  z } | { \textvisiblespace,  à,  b,  ç,  d,  e,  h,  j,  m,  n,  o,  p,  q,  u,  ù,  v,  w } | { æ, ï, ü, ÿ } |
+| Groupe 1                                                                  | Groupe 2                                                                                              | Hors groupes   |
+|---------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|----------------|
+| { \textvisiblespace,  d,  g,  h,  i,  î,  m,  œ,  q,  s,  u,  ù,  w,  z } | { a,  à,  â,  b,  c,  ç,  e,  é,  è,  ê,  ë,  f,  j,  k,  l,  n,  o,  ô,  p,  r,  t,  û,  v,  x,  y } | { æ, ï, ü, ÿ } |
 :END:
 
 À première vue, les résultats ne sont pas concluants. Peut-être qu'un linguiste saura interpréter ces résultats, mais il est plus probable que l'utilisation d'un grand nombre de caractères peu fréquents perturbe l'entrainement du modèle.
+
+** Analyse sans accents et ligatures
+:PROPERTIES:
+:header-args:ipython: :tangle reprandom_noaccent.py :session markexec :results output replace drawer
+:END:
+
+#+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports none
+  from markov import *
+#+END_SRC
+
+#+BEGIN_SRC ipython :exports code
+    import numpy as np
+    from itertools import islice
+    with open('1999-05-17.txt', 'r') as repfile:
+        repcorpus = repfile.read().replace('\n', '')
+
+    def translate(iterable, translations):
+        for el in iterable:
+            if el in translations:
+                for tr in translations[el]:
+                    yield tr
+            else:
+                yield el
+
+    repalphabet_latin = ' abcdefghijklmnopqrstuvwxyz'
+    translations = {'à': 'a',
+                    'â': 'a',
+                    'æ': 'ae',
+                    'ç': 'c',
+                    'é': 'e',
+                    'è': 'e',
+                    'ê': 'e',
+                    'ë': 'e',
+                    'î': 'i',
+                    'ï': 'i',
+                    'ô': 'o',
+                    'œ': 'oe',
+                    'ù': 'u',
+                    'û': 'u',
+                    'ü': 'u',
+                    'ÿ': 'y',
+                    '\'': ' ',
+                    '-': ' '}
+
+    #' aàâæbcçdeéèêëfghiîïjklmnoôœpqrstuùûüvwxyÿz'
+    observations = list(islice(
+        map_el_to_int(translate(repcorpus, translations), repalphabet_latin),
+        0, 50000))
+    repmarkov_latin = markovmodel.fromscratch(2, len(repalphabet_latin))
+
+    train_markov_model(repmarkov_latin, observations, max_iterations=100)
+
+    print(repmarkov_latin)
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+the model never stopped improving
+transition:
+[[0.49791517 0.50208483]
+ [0.49957854 0.50042146]]
+
+observation:
+[[0.16803065 0.07352529 0.00897934 0.03117499 0.03533547 0.14544868
+  0.01001141 0.00917099 0.01077808 0.05838684 0.00310831 0.00042099
+  0.04936585 0.0225495  0.05936101 0.04460847 0.02391233 0.00595804
+  0.05706367 0.06223613 0.05604983 0.04457401 0.01127332 0.00019916
+  0.00512855 0.00283373 0.00051535]
+ [0.16641661 0.0746733  0.00898083 0.02941051 0.0355048  0.14671103
+  0.01006864 0.00926894 0.01066242 0.05861373 0.0031716  0.00041902
+  0.04931523 0.02261079 0.05932025 0.04487175 0.02436701 0.00492463
+  0.05733677 0.06192585 0.05647022 0.04494594 0.01132677 0.00020084
+  0.00511159 0.00284629 0.00052464]]
+
+initial states:
+[[0.75211754 0.24788246]]
+:END:
+
+ 
+#+BEGIN_SRC ipython :exports results :tangle no
+  markov_report(repmarkov_latin, repalphabet_latin)
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+#+ATTR_LATEX: :align l l l
+| caractère         | État 1 (%) | État 2 (%) |
+|-------------------|------------|------------|
+| \textvisiblespace | $16.803$   | $16.642$   |
+| a                 | $7.353$    | $7.467$    |
+| b                 | $0.898$    | $0.898$    |
+| c                 | $3.117$    | $2.941$    |
+| d                 | $3.534$    | $3.550$    |
+| e                 | $14.545$   | $14.671$   |
+| f                 | $1.001$    | $1.007$    |
+| g                 | $0.917$    | $0.927$    |
+| h                 | $1.078$    | $1.066$    |
+| i                 | $5.839$    | $5.861$    |
+| j                 | $0.311$    | $0.317$    |
+| k                 | $0.042$    | $0.042$    |
+| l                 | $4.937$    | $4.932$    |
+| m                 | $2.255$    | $2.261$    |
+| n                 | $5.936$    | $5.932$    |
+| o                 | $4.461$    | $4.487$    |
+| p                 | $2.391$    | $2.437$    |
+| q                 | $0.596$    | $0.492$    |
+| r                 | $5.706$    | $5.734$    |
+| s                 | $6.224$    | $6.193$    |
+| t                 | $5.605$    | $5.647$    |
+| u                 | $4.457$    | $4.495$    |
+| v                 | $1.127$    | $1.133$    |
+| w                 | $0.020$    | $0.020$    |
+| x                 | $0.513$    | $0.511$    |
+| y                 | $0.283$    | $0.285$    |
+| z                 | $0.052$    | $0.052$    | 
+
+
+
+| Groupe 1                                              | Groupe 2                                                                  |
+|-------------------------------------------------------|---------------------------------------------------------------------------|
+| { \textvisiblespace,  c,  h,  k,  l,  n,  q,  s,  x } | { a,  b,  d,  e,  f,  g,  i,  j,  m,  o,  p,  r,  t,  u,  v,  w,  y,  z } |
+:END:
+
+
 
 * Sources
 Stamp, Mark. (2018). A Revealing Introduction to Hidden Markov Models. https://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf.
@@ -1298,3 +1502,4 @@ initial states:
  - "For example, the DP solution must have valid state transitions" ? How can transitions be invalid ?
  - Where does the initial states distribution matrix come from ?
  - Does $N \times M$ means $N$ rows $M$ columns or $N$ columns $M$ rows
+

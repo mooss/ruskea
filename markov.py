@@ -1,6 +1,7 @@
 import math
 import random
 import numpy as np
+from copy import deepcopy
 
 def stochastic_variation(mat, epsilon):
     """Slightly changes the values of a matrix while making sure that the sum of the rows are kept the same.
@@ -13,20 +14,25 @@ def stochastic_variation(mat, epsilon):
     epsilon : float
         Maximal variation.
     """
+    random.seed()
     for row in mat:
         delta = 0
         for i in range(0, len(row)):
-            if delta > epsilon / 2:
-                nextvariation = random.uniform(-epsilon, 0)
-            elif delta < -epsilon / 2:
-                nextvariation = random.uniform(0, epsilon)
-            else:
-                nextvariation = random.uniform(-epsilon, epsilon)
+            # if delta > epsilon / 2:
+            #     nextvariation = random.uniform(-epsilon, 0)
+            # elif delta < -epsilon / 2:
+            #     nextvariation = random.uniform(0, epsilon)
+            # else:
+            #     nextvariation = random.uniform(-epsilon, epsilon)
 
-            delta += nextvariation
-            row[i] += nextvariation
+            # delta += nextvariation
+            nextvalue = random.gauss(row[i], epsilon)
+            delta += nextvalue - row[i]
+            row[i] = nextvalue
+        meandelta = delta/len(row)
+        for i in range(0, len(row)):
+            row[i] -= meandelta
 
-        row[-1] -= delta
 
 class markovmodel(object):
     def fromscratch(N, M):
@@ -52,9 +58,9 @@ class markovmodel(object):
         observation = np.full((N, M), inverseM)
         initial = np.full((1, N), inverseN)
 
-        stochastic_variation(transition, inverseN / 5)
-        stochastic_variation(observation, inverseM / 5)
-        stochastic_variation(initial, inverseN / 5)
+        stochastic_variation(transition, inverseN / 10)
+        stochastic_variation(observation, inverseM / 10)
+        stochastic_variation(initial, inverseN / 10)
 
         return markovmodel(transition, observation, initial)
 
@@ -366,18 +372,19 @@ def train_markov_model(markov, observations, max_iterations=200, epsilon = 0.000
     -------
     out : 
     """
-    prevlogprob = float('-inf')
-    logprob = reestimate_markov_model(markov, observations)
+    _, scale_factors = alpha_pass(markov, observations)
+    bestlogprob = log_observation_sequence_probability(scale_factors)
+    bestmodel = deepcopy(markov)
 
     for i in range(1, max_iterations):
-        if(logprob <= prevlogprob):
-            print('the model stopped improving at iteration', i)
-            return 
-
-        prevlogprob = logprob
         logprob = reestimate_markov_model(markov, observations)
         markov.ensure_row_stochasticity()
-    print('the model never stopped improving')
+        if logprob > bestlogprob:
+            bestmodel = deepcopy(markov)
+            bestlogprob = logprob
+
+    markov = deepcopy(bestmodel)
+    print('bestprob', bestlogprob)
 
 def map_el_to_int(iterable, alphabet):
     """Map all the elements of an iterable to their index in an alphabet.
