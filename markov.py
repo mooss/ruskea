@@ -1,6 +1,6 @@
 import math
 import random
-import numpy as np
+from numpy import zeros, full, array
 from copy import deepcopy
 
 def stochastic_variation(mat, epsilon):
@@ -24,14 +24,48 @@ def stochastic_variation(mat, epsilon):
             #     nextvariation = random.uniform(0, epsilon)
             # else:
             #     nextvariation = random.uniform(-epsilon, epsilon)
+            if random.uniform(0, 1) >= .5:
+                row[i] += random.uniform(*epsilon) #nextvariation
+            else:
+                row[i] -= random.uniform(*epsilon)
 
-            # delta += nextvariation
-            nextvalue = random.gauss(row[i], epsilon)
-            delta += nextvalue - row[i]
-            row[i] = nextvalue
-        meandelta = delta/len(row)
+            if row[i] < 0:
+                row[i] = -row[i]
+                # delta += nextvariation
+
+        factor = 1/sum(row)
         for i in range(0, len(row)):
-            row[i] -= meandelta
+            row[i] *= factor
+        #     nextvalue = random.gauss(row[i], epsilon)
+        #     delta += nextvalue - row[i]
+        #     row[i] = nextvalue
+        # meandelta = delta/len(row)
+        # for i in range(0, len(row)):
+        #     row[i] -= meandelta
+
+
+def prob_matrix(M, p_range):
+    try:
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                if random.uniform(0, 1) >= .5:
+                    M[i][j] += random.uniform(p_range[0], p_range[1])
+                else:
+                    M[i][j] -= random.uniform(p_range[0], p_range[1])
+        for i in range(M.shape[0]):
+            factor = M[i].sum()
+            for j in range(M.shape[1]):
+                M[i][j] *= 1/factor
+    except:
+        for j in range(M.shape[0]):
+            if random.uniform(0, 1) >= .5:
+                M[j] += random.uniform(p_range[0], p_range[1])
+            else:
+                M[j] -= random.uniform(p_range[0], p_range[1])
+        factor = M.sum()
+        for j in range(M.shape[0]):
+            M[j] *= 1/factor
+    return M
 
 
 class markovmodel(object):
@@ -54,13 +88,15 @@ class markovmodel(object):
         inverseN = 1 / N
         inverseM = 1 / M
 
-        transition = np.full((N, N), inverseN)
-        observation = np.full((N, M), inverseM)
-        initial = np.full((1, N), inverseN)
+        transition = full((N, N), inverseN)
+        observation = full((N, M), inverseM)
+        initial = full((1, N), inverseN)
 
-        stochastic_variation(transition, inverseN / 10)
-        stochastic_variation(observation, inverseM / 10)
-        stochastic_variation(initial, inverseN / 10)
+        # prob_matrix(transition, (0.001, 0.005))
+        # prob_matrix(observation, (0.02, 0.025))
+        stochastic_variation(transition, (0.000, 0.005))
+        stochastic_variation(observation, (0.02, 0.025))
+        stochastic_variation(initial, (0.001, 0.005))
 
         return markovmodel(transition, observation, initial)
 
@@ -146,8 +182,8 @@ def alpha_pass(markov, observations):
     out : np.array
         The alpha_t values.
     """
-    alpha = np.zeros(shape=(len(observations), markov.ndim))
-    scale_factors = np.zeros(shape=(len(observations)))
+    alpha = zeros(shape=(len(observations), markov.ndim))
+    scale_factors = zeros(shape=(len(observations)))
 
     # alpha_zero initialization
 
@@ -189,7 +225,7 @@ def beta_pass(markov, observations, scale_factors):
     out : 
 
     """
-    beta = np.zeros(shape=(len(observations), markov.ndim))
+    beta = zeros(shape=(len(observations), markov.ndim))
 
     # all elements of the last column take the last scale factor as value
     # np.vectorize(lambda _: scale_factors[-1])(beta.transpose()[-1])
@@ -226,8 +262,8 @@ def gamma_digamma_pass(markov, observations, alpha, beta):
     out : 
 
     """
-    digamma = np.zeros(shape=(len(observations), markov.ndim, markov.ndim))
-    gamma = np.zeros(shape=(len(observations), markov.ndim))
+    digamma = zeros(shape=(len(observations), markov.ndim, markov.ndim))
+    gamma = zeros(shape=(len(observations), markov.ndim))
 
     for t in range(0, len(observations) - 1):
         for i in range(0, markov.ndim):
@@ -335,7 +371,8 @@ def log_observation_sequence_probability(scale_factors):
     """
     result = 0
     for i in range(0, len(scale_factors)):
-        result += math.log(scale_factors[i])
+        if scale_factors[i] > 0:
+            result += math.log(scale_factors[i])
     return -result
 
 def reestimate_markov_model(markov, observations):
@@ -357,7 +394,7 @@ def reestimate_markov_model(markov, observations):
     reestimate_observation_matrix(markov, observations, gamma)
     return log_observation_sequence_probability(scale_factors)
 
-def train_markov_model(markov, observations, max_iterations=200, epsilon = 0.000000001):
+def train_markov_model(markov, observations, max_iterations=200):
     """
 
     Parameters
@@ -384,7 +421,24 @@ def train_markov_model(markov, observations, max_iterations=200, epsilon = 0.000
             bestlogprob = logprob
 
     markov = deepcopy(bestmodel)
-    print('bestprob', bestlogprob)
+    return bestlogprob
+
+def train_best_markov_model(N, M, observations, nb_candidates, train_iter, max_iter):
+    bestmodel = markovmodel.fromscratch(N, M)
+    bestprob = train_markov_model(bestmodel, observations, train_iter)
+
+    for i in range(0, nb_candidates - 1):
+        candidate = markovmodel.fromscratch(N, M)
+        candidateprob = train_markov_model(candidate, observations, train_iter)
+
+        if candidateprob > bestprob:
+            bestprob = candidateprob
+            bestmodel = deepcopy(candidate)
+
+    print(bestprob)
+    print(bestmodel)
+    train_markov_model(bestmodel, observations, max_iter - train_iter)
+    return bestmodel
 
 def map_el_to_int(iterable, alphabet):
     """Map all the elements of an iterable to their index in an alphabet.
