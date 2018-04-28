@@ -924,7 +924,12 @@ initial states:
                  ,*('${:.3f}$'.format(probas * 100) for probas in line[1:])]
                 for line in scoretable]
   scoretable.insert(0, ['caractère', 'État 1 (%)', 'État 2 (%)'])
-  print('#+ATTR_LATEX: :align l l l')
+  print('#+ATTR_LATEX: :align l l l\n',
+        '#+CAPTION: répartition des caractères', sep='')
+  try:
+      print('#+NAME:', name + 'rep')
+  except NameError:
+      pass
   print(orgmodetable(scoretable, header=True), '\n\n\n')
 
   groupstable = [['{ ' + ',  '.join((latexify(char) for char in group)) + ' }'
@@ -936,19 +941,38 @@ initial states:
           len(ungroupables), 'Hors groupes')
       groupstable[1].insert(
           len(ungroupables), '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
+
+  print('#+CAPTION: groupes formés')
+  try:
+      print('#+NAME:', name + 'grp')
+  except NameError:
+      pass
   print(orgmodetable(groupstable, header=True))
 #+END_SRC
 
-* /Brown corpus/                                 :export:
-Dans cette section les fonctionnalités offertes par =markov.py= sont utilisées pour reproduire l'expérience de "Marvin le martien" (Stamp 2018)
 
+* Introduction                                                       :export:
+L'expérience de "Marvin le martien" (Stamp 2018) montre qu'il est possible d'extraire des caractéristiques linguistiques à partir d'un corpus de petite taille (50000 caractères), et ce sans connaissances préalables sur la langue du corpus.
+Cette expérience consiste à entrainer des modèles de Markov cachés comprenant deux états sur le corpus.
+Les deux états ainsi formés regroupent d'une part les consonnes et d'autre part les voyelles.
 
+Nous allons dans un premier temps reproduire cette expérience sur le corpus évoqué dans Stamp (2018), puis nous allons mener une expérience similaire sur un corpus en langue française.
 
+Le choix a été fait d'implémenter en python l'algorithme d'entrainement d'un modèle de markov caché. Cette implémentation, de même que ce rapport sont disponibles sur github à l'adresse suivante : https://github.com/mooss/ruskea.
+
+* Reproduction de l'expérience sur le /Brown corpus/                 :export:
+
+Cette section décrit les efforts fait pour reproduire l'expérience de "Marvin le martien" sur le /Brown corpus/.
+Dans un premier temps la méthode utilisée pour extraire les 50000 premiers caractères du /Brown corpus/ va être détaillée.
+Ensuite, une reproduction de l'expérience va être effectuée en utilisant les matrices proposées dans (Stamp 2018).
+Finalement, l'expérience va être reproduite en initialisant les matrices procéduralement.
 ** Extraction des 50 000 premiers caractères du /Brown corpus/
 
 La première étape est d'extraire les caractères nous intéressant depuis le /Brown corpus/.
 En effet, le /Brown corpus/ est distribué avec les annotations intégrées et il faut donc les supprimer.
-Les 50000 premiers caractères de ce corpus sont écrits dans le fichier =brown50000.txt=.
+
+La bibliothèque NTLK est utilisée pour télécharger le corpus.
+Les 50000 premiers caractères de ce corpus sont écrits dans le fichier =brown50000.txt=, en utilisant le script =brownextract.py= :
 #+BEGIN_SRC ipython :session brownextract :results silent :tangle brownextract.py :eval never :shebang "#!/usr/bin/env python3"
   import nltk
   nltk.download('brown')
@@ -985,116 +1009,61 @@ Les 50000 premiers caractères de ce corpus sont écrits dans le fichier =brown5
 
 #+END_SRC
 
-** Imports
-
-#+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports code :tangle brownmarvin.py
-  import numpy as np
-#+END_SRC
-
 ** Matrices prédéfinies
 :PROPERTIES:
-:header-args:ipython: :tangle brownmarvin.py :session markexec :results output replace drawer
+:header-args:ipython: :tangle brownmarvin.py :session brownmarvin_exec :results output replace drawer
 :END:
+Les matrices de transitions, observations, et des états initiaux sont initialisées selon les valeurs fournies dans l'article de Mark Stamp.
 
-#+BEGIN_SRC ipython :exports code
+#+BEGIN_SRC ipython :exports code :shebang "#!/usr/bin/env python3" :noweb yes :results silent
   from numpy import array
   from markov import *
 
   marvin_transition = array([[0.47468, 0.52532],
-                                [0.51656, 0.48344]])
+                             [0.51656, 0.48344]])
   marvin_observation = array(
       [[0.03688, 0.03735, 0.03408, 0.03455, 0.03828, 0.03782, 0.03922, 0.03688, 0.03408, 0.03875, 0.04062, 0.03735, 0.03968, 0.03548, 0.03735, 0.04062, 0.03595, 0.03641, 0.03408, 0.04062, 0.03548, 0.03922, 0.04062, 0.03455, 0.03595, 0.03408, 0.03408],
        [0.03397, 0.03909, 0.03537, 0.03537, 0.03909, 0.03583, 0.03630, 0.04048, 0.03537, 0.03816, 0.03909, 0.03490, 0.03723, 0.03537, 0.03909, 0.03397, 0.03397, 0.03816, 0.03676, 0.04048, 0.03443, 0.03537, 0.03955, 0.03816, 0.03723, 0.03769, 0.03955]]
   )
   marvin_initial = array([[0.51316, 0.48684]])
 
-  with open('brown50000.txt', 'r') as marvinfile:
-      marvin_corpus = marvinfile.read().replace('\n', '')
+  <<browncorpus>>
 
-  brown_alphabet = ' abcdefghijklmnopqrstuvwxyz'
-  brown_marvin = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
+  <<latinalphabet>>
 
-  print(brown_marvin)
-  train_markov_model(brown_marvin,
-                     list(map_el_to_int(marvin_corpus, brown_alphabet)),
+  model = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
+
+  train_markov_model(model,
+                     list(map_el_to_int(corpus, alphabet)),
                      max_iterations=100)
 
-  print(brown_marvin)
 #+END_SRC
 
-#+RESULTS:
-:RESULTS:
-transition:
-[[0.47468 0.52532]
- [0.51656 0.48344]]
+Une tolérence relative de 1e^{-3} est appliquée à la construction du modèle pour vérifier la stochasticité des matrice. Sans cette tolérance élevé, l'étape de vérification de la stochasticité des matrices échoue.
 
-observation:
-[[0.03688 0.03735 0.03408 0.03455 0.03828 0.03782 0.03922 0.03688 0.03408
-  0.03875 0.04062 0.03735 0.03968 0.03548 0.03735 0.04062 0.03595 0.03641
-  0.03408 0.04062 0.03548 0.03922 0.04062 0.03455 0.03595 0.03408 0.03408]
- [0.03397 0.03909 0.03537 0.03537 0.03909 0.03583 0.0363  0.04048 0.03537
-  0.03816 0.03909 0.0349  0.03723 0.03537 0.03909 0.03397 0.03397 0.03816
-  0.03676 0.04048 0.03443 0.03537 0.03955 0.03816 0.03723 0.03769 0.03955]]
+Les valeurs ont été copiées telles quelles depuis l'article. Il est probables que ces valeurs aient été arrondies par l'auteur de l'article, d'où la nécessité d'assouplir le test de stochasticité.
 
-initial states:
-[[0.51316 0.48684]]
-bestprob -137446.21950411287
-transition:
-[[0.23380594 0.76619406]
- [0.70619312 0.29380688]]
+*** Résultats
+Les résultats sont synthétisés dans les tables [[marvinrep]] et [[marvingrp]].
 
-observation:
-[[2.80663694e-01 1.42545160e-01 2.49692361e-13 6.87847936e-04
-  4.35693343e-06 2.25671596e-01 3.04678198e-17 4.44818727e-03
-  4.99289965e-04 1.27722118e-01 2.60994980e-29 2.92718516e-03
-  6.31027224e-05 4.75214656e-14 1.52968215e-11 1.37685546e-01
-  1.85592672e-03 5.64893247e-23 1.02389935e-14 1.51700292e-04
-  2.03887624e-02 4.65346022e-02 1.31845386e-29 2.88806231e-18
-  1.39398404e-18 8.15092461e-03 2.66239538e-38]
- [6.47312285e-02 1.98900890e-05 2.12158779e-02 5.05608272e-02
-  6.67952520e-02 8.33899093e-10 3.43220634e-02 2.29579122e-02
-  7.06052946e-02 3.08757982e-12 2.26763913e-03 5.02727812e-03
-  7.28137650e-02 3.72430901e-02 1.14842470e-01 2.28922444e-06
-  3.28804456e-02 1.53738246e-03 1.00852289e-01 1.07054166e-01
-  1.32062759e-01 7.21326070e-07 1.63346886e-02 2.14464853e-02
-  4.53527826e-03 1.87378694e-02 1.15303684e-03]]
+La table [[marvinrep]] correspond à la transposée de la matrice d'observation du modèle de Markov entrainé, avec comme information supplémentaire en première colonne le caractère auquel correspondent les probabilités d'apparition des colonnes suivantes.
+Les probabilités d'apparition sont rapportées sous forme de pourcentages, afin d'être plus lisibles.
 
-initial states:
-[[1.00000000e+00 2.08732228e-11]]
-:END:
+La table [[marvingrp]] regroupe les caractères selon l'état pour lequel il ont la plus grande probabilité d'apparition.
+Les résultats des autres expériences seront également présentés sous cette forme.
 
-#+BEGIN_SRC ipython :tangle no :exports results
-  def latexify(char):
-      if char == ' ':
-          return '\\textvisiblespace'
-      return char
+Les résultats obtenus sont les mêmes que ceux présentés dans (Stamp 2018), à savoir les voyelles (moins y) d'un côté et les consonnes (plus y) de l'autre.
 
-  def markov_report(markov, brown_alphabet):
-      scoretable, groups, ungroupables = markov_alphabetical_analysis(markov, brown_alphabet)
-      scoretable = [[latexify(line[0]),
-                     ,*('${:.3f}$'.format(probas * 100) for probas in line[1:])]
-                    for line in scoretable]
-      scoretable.insert(0, ['caractère', 'État 1 (%)', 'État 2 (%)'])
-      print('#+ATTR_LATEX: :align l l l')
-      print(orgmodetable(scoretable, header=True), '\n\n\n')
-
-      groupstable = [['{ ' + ',  '.join((latexify(char) for char in group)) + ' }'
-                        for group in groups] ]
-      groupstable.insert(0, ['Groupe 1', 'Groupe 2'])
-
-      if len(ungroupables) > 0:
-          groupstable[0].insert(
-              len(ungroupables), 'Hors groupes')
-          groupstable[1].insert(
-              len(ungroupables), '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
-      print(orgmodetable(groupstable, header=True))
-
-  markov_report(brown_marvin, brown_alphabet)
+#+BEGIN_SRC ipython :tangle no :exports results :noweb yes
+  name = 'marvin'
+  <<markov_report>>
 #+END_SRC
 
 #+RESULTS:
 :RESULTS:
 #+ATTR_LATEX: :align l l l
+#+CAPTION: répartition des caractères
+#+NAME: marvinrep
 | caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
 | \textvisiblespace | $28.066$   | $6.473$    |
@@ -1127,16 +1096,25 @@ initial states:
 
 
 
+#+CAPTION: groupes formés
+#+NAME: marvingrp
 | Groupe 1                                  | Groupe 2                                                                              |
 |-------------------------------------------|---------------------------------------------------------------------------------------|
 | { \textvisiblespace,  a,  e,  i,  o,  u } | { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } |
 :END:
 
-** Matrices aléatoires
+** Matrices générées procéduralement
 :PROPERTIES:
 :header-args:ipython: :session brownrandomexec :results output replace drawer
 :END:
 
+L'article de Mark Stamp ne fournissait que peu de détails concernant l'initialisation des matrices de transition, observation et répartition initiale des états.
+En effet, la seule indication donnée est d'initialiser les éléments de chaque ligne à environ $1/X$, $X$ étant le nombre d'éléments dans la ligne.
+
+C'est un problème car en utilisant des matrices d'une forme similaire à celle utilisée dans la section précédentes, nous sommes susceptibles d'obtenir des résultat différents.
+
+Après beaucoup d'essais infructeux, une solution satisfaisante a été trouvée.
+La méthode =markovmodel.fromscratch= permettant d'initialiser un modèle de Markov est visible dans =markov.py=.
 
 #+BEGIN_SRC ipython :exports code :noweb yes :tangle brownrandom.py :shebang "#!/usr/bin/env python3"
   <<markovimport>>

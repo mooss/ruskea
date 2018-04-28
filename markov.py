@@ -371,8 +371,7 @@ def log_observation_sequence_probability(scale_factors):
     """
     result = 0
     for i in range(0, len(scale_factors)):
-        if scale_factors[i] > 0:
-            result += math.log(scale_factors[i])
+        result += math.log(scale_factors[i])
     return -result
 
 def reestimate_markov_model(markov, observations):

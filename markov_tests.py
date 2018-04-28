@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from markov import *
+import np
 
 markovtest = markovmodel.fromscratch(3, 4)
 print(markovtest.transition_matrix)

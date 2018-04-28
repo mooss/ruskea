@@ -58,7 +58,12 @@ scoretable = [[latexify(line[0]),
                *('${:.3f}$'.format(probas * 100) for probas in line[1:])]
               for line in scoretable]
 scoretable.insert(0, ['caractère', 'État 1 (%)', 'État 2 (%)'])
-print('#+ATTR_LATEX: :align l l l')
+print('#+ATTR_LATEX: :align l l l\n',
+      '#+CAPTION: répartition des caractères', sep='')
+try:
+    print('#+NAME:', name + 'rep')
+except NameError:
+    pass
 print(orgmodetable(scoretable, header=True), '\n\n\n')
 
 groupstable = [['{ ' + ',  '.join((latexify(char) for char in group)) + ' }'
@@ -70,4 +75,10 @@ if len(ungroupables) > 0:
         len(ungroupables), 'Hors groupes')
     groupstable[1].insert(
         len(ungroupables), '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
+
+print('#+CAPTION: groupes formés')
+try:
+    print('#+NAME:', name + 'grp')
+except NameError:
+    pass
 print(orgmodetable(groupstable, header=True))
