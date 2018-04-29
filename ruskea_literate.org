@@ -887,7 +887,7 @@ initial states:
 #+END_SRC
 
 ** Affichage
-#+NAME: print_probas
+#+NAME: printprobas
 #+BEGIN_SRC ipython
   _, scale_factors = alpha_pass(model, observations)
   print('score', log_observation_sequence_probability(scale_factors))
@@ -988,6 +988,31 @@ initial states:
 
 ** Autres
 
+#+NAME: deforgmodetable
+#+BEGIN_SRC ipython
+def orgmodetable(matrix, header=False):
+    maxlen = [0] * len(matrix[0])
+    for line in matrix:
+        for i, cell in enumerate(line):
+            if len(maxlen) <= i or len(str(cell)) > maxlen[i]:
+                maxlen[i] = len(str(cell))
+
+    def orgmodeline(line, fill=' '):
+        joinsep = fill + '|' + fill
+        return '|' + fill + joinsep.join(
+            str(cell) + fill * (mlen - len(str(cell)))
+            for cell, mlen in zip(line, maxlen)
+        ) + fill + '|'
+
+    result = ''
+    if header:
+        result = orgmodeline(matrix[0]) + '\n' + \
+            orgmodeline(('-') * len(maxlen), fill='-') + '\n'
+        matrix = matrix[1:]
+    result += '\n'.join(orgmodeline(line) for line in matrix)
+    return result
+#+END_SRC
+
 #+NAME: markovimport
 #+BEGIN_SRC ipython
   from itertools import islice
@@ -1005,9 +1030,9 @@ initial states:
   model = train_best_markov_model(
       2, len(alphabet),
       observations,
-      3,
-      8,
-      100)
+      nb_candidates=3,
+      train_iter=8,
+      max_iter=100)
 #+END_SRC
 
 * Introduction                                                       :export:
@@ -1259,12 +1284,16 @@ Des résultats identiques à ceux de l'expérience originale ont été retrouvé
 :END:
 
 
-* Est-Républicain                                                    :export:
+* Expérience sur un corpus français                                  :export:
 Cette section s'appuie sur un corpus contenant des articles du journal l'Est Républicain, publiés en 1999.
 Le corpus est disponible à l'adresse suivante : http://www.cnrtl.fr/corpus/estrepublicain/.
 
+L'alphabet utilisé correspond à celui proposé par Wikipédia (https://fr.wikipedia.org/wiki/Alphabet_fran%C3%A7ais), soit les 26 lettres fondamentales, les 13 voyelles accentuées (=àâéèêëîïôùûüÿ=), les deux ligatures (=œæ=), et le c cédille. L'espace se rajoute à ces 42 lettres.
+
 ** Extraction du texte
 Les articles sont contenus dans des fichiers =XML=. Le script suivant est utilisé pour récupérer le texte des articles en ignorant le balisage.
+
+Le texte ainsi extrait est sauvegardé dans le fichier =1999-05-17.txt=.
 
 #+BEGIN_SRC ipython :tangle repextract.py :results silent :eval no-export :shebang "#!/usr/bin/env python3"
   import xml.etree.ElementTree as ET
@@ -1302,16 +1331,20 @@ Les articles sont contenus dans des fichiers =XML=. Le script suivant est utilis
 
 Cette approche a ses limites, par exemple, il y a beaucoup de 'h' isolés à cause de la notation des heures (exemple : de 20h à 20h30). Par ailleurs la suppression de certain caractères spéciaux mène à des juxtapositions non désirables (exemple : saint-mihiel \textrightarrow saintmihiel, l'heure \textrightarrow lheure).
 
-Il serait possible de créer des règles pour traiter ces cas particuliers. Cependant, ils semblent être statistiquement insignifiants, il n'est donc pas important de s'en soucier pour cette expérience.
+Il serait possible de créer des règles pour traiter ces cas particuliers. Cependant, ils semblent être statistiquement insignifiants, c'est pourquoi le choix a été fait de ne pas s'en soucier.
 
 ** Analyse du texte brut
 :PROPERTIES:
 :header-args:ipython: :tangle repfrench.py :session repfrench :results output replace drawer
 :END:
 
-#+BEGIN_SRC ipython :shebang "#!/usr/bin/env python3" :eval never :exports none
-  from markov import *
-#+END_SRC
+Que ce soit à cause de la taille accrue de l'alphabet, ou des particularités du corpus, les résultats sont moins cohérents au fil des exécutions que lors de l'expérience sur le /Brown corpus/.
+
+Une nouvelle approche s'est donc imposée.
+En plus du système d'initialisation de matrices décrit précédemment, $N$ modèles sont entrainés $M$ fois et le meilleur d'entre eux est selectionné pour continuer l'entrainement jusquà $100$.
+
+Cette approche n'est cependant pas suffisante, les résultats de plusieurs exécutions restent grandement différents.
+Pour être sûr d'obtenir de bons résultats, le script est exécuté $50$ fois et le meilleur modèle est conservé.
 
 #+BEGIN_SRC ipython :exports code :shebang "#!/usr/bin/env python3" :noweb yes
   <<markovimport>>
@@ -1325,40 +1358,90 @@ Il serait possible de créer des règles pour traiter ces cas particuliers. Cepe
   <<trainbest>>
 #+END_SRC
 
-#+RESULTS:
-:RESULTS:
-candidate prob: -143973.1283572361
-best prob: -143960.7089248927
-candidate prob: -143942.54735012856
-best prob: -143942.54735012856
-candidate prob: -81768.87271477211
-best prob: -81768.87271477211
-candidate prob: -143952.31804629278
-best prob: -81768.87271477211
-candidate prob: -140253.7572291471
-best prob: -81768.87271477211
-candidate prob: -5260.114374153069
-best prob: -5260.114374153069
-candidate prob: -142463.32283490506
-best prob: -5260.114374153069
-candidate prob: -143945.87970737182
-best prob: -5260.114374153069
-candidate prob: -45181.19021785969
-best prob: -5260.114374153069
-candidate prob: -143720.64082085402
-best prob: -5260.114374153069
-[[' ', 0.15693750391005312, 0.4296109657281298], ['a', 0.06918636096844555, 0.03533787163419111], ['à', 2.48678766398135e-15, 0.15156555845737188], ['â', 0.0003821299795589894, 0.0029574300283538185], ['æ', 0.0, 0.0], ['b', 0.009334752561243194, 3.1888945727930406e-10], ['c', 0.02847565517929709, 0.06648142352822134], ['ç', 0.0003950118015656476, 1.543736165286876e-26], ['d', 0.036819255518907336, 6.090355690590432e-08], ['e', 0.1226989787477217, 0.020103559575406754], ['é', 0.023596735025343155, 5.719450319583278e-07], ['è', 0.0031600944125251607, 4.851639977976246e-16], ['ê', 0.0012058254995161788, 1.600235441515676e-18], ['ë', 6.197691945324233e-05, 9.957430566697403e-06], ['f', 0.010087312422835587, 0.009368646164982442], ['g', 0.009584233711671738, -4.507345453440938e-20], ['h', 0.004273751174773885, 0.17389690180432546], ['i', 0.06058233630327822, 9.338232479004823e-16], ['î', 0.00024948113783093196, 2.7293951227937928e-21], ['ï', 0.0, 0.0], ['j', 0.0032639846166491854, 1.5256417235580305e-06], ['k', 0.0004365919912041333, 6.576304601372107e-24], ['l', 0.04971287318902626, 0.0404276466929838], ['m', 0.023472017050926847, -4.365411258875856e-21], ['n', 0.061705001423517376, 1.240089840504015e-22], ['o', 0.04571741850751834, -2.2738983494106243e-15], ['ô', 0.00040066139012646495, 0.0019620665486498583], ['œ', 0.00032901673078005367, 9.17558953298609e-05], ['p', 0.025023637530641157, 0.0017721174968767994], ['q', 0.005616786654535449, 0.0009649273540465112], ['r', 0.05948046127785821, 3.8927079594277817e-19], ['s', 0.06455324408634504, 8.28788327392991e-09], ['t', 0.05850332734751864, -1.3319054650701628e-08], ['u', 0.0459153162084879, 0.0055141031304701184], ['ù', 0.00022869104301168698, -1.6364900934927787e-28], ['û', 0.00018711085337042198, 7.033342337480367e-14], ['ü', 0.0, 0.0], ['v', 0.011746403572873211, -1.5746971142102233e-16], ['w', 0.00019811019063535913, 0.00024783798115344977], ['x', 0.00307455418445057, 0.05689732663650656], ['y', 0.002972983560010506, -2.1732264030536917e-11], ['ÿ', 0.0, 0.0], ['z', 0.00043041331648822824, 0.0027877501560632113]]
-[['a', 'b', 'ç', 'd', 'e', 'é', 'è', 'ê', 'ë', 'f', 'g', 'i', 'î', 'j', 'k', 'l', 'm', 'n', 'o', 'œ', 'p', 'q', 'r', 's', 't', 'u', 'ù', 'û', 'v', 'y'], [' ', 'à', 'â', 'c', 'h', 'ô', 'w', 'x', 'z']]
-:END:
- 
+#+BEGIN_SRC ipython :exports none :eval no :noweb yes
+  name = 'rawfrench'
+  descr = ' - Est républicain - Alphabet complet'
+  <<printprobas>>
 
-#+BEGIN_SRC ipython :exports none :noweb yes
-  <<print_probas>>
+  <<deforgmodetable>>
+
+
   <<markov_report>>
 #+END_SRC
 
+#+BEGIN_SRC sh :shebang "#!/usr/bin/env bash" :eval never :exports none :tangle repfrench50times.sh :exports none
+  for((i=0; i<50; ++i));
+  do
+      ./repfrench.py > repfrench_execution_$i &
+  done
+#+END_SRC
 
-À première vue, les résultats ne sont pas concluants. Peut-être qu'un linguiste saura interpréter ces résultats, mais il est plus probable que l'utilisation d'un grand nombre de caractères peu fréquents perturbe l'entrainement du modèle.
+#+BEGIN_SRC sh :tangle no :exports results :results replace drawer
+  best=$(grep -n score repfrench_execution_* | sort -k 2 -t ' ' | head -n1)
+  file=$(echo $best | cut -f 1 -d ':')
+  line=$(echo $best | cut -f 2 -d ':')
+  tail --lines=+$((line + 1)) $file
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+#+ATTR_LATEX: :align l l l
+#+CAPTION: Répartition des caractères - Est républicain - Alphabet complet
+#+NAME: rawfrenchrep
+| caractère         | État 1 (%) | État 2 (%) |
+|-------------------|------------|------------|
+| \textvisiblespace | $0.000$    | $30.801$   |
+| a                 | $0.002$    | $12.499$   |
+| à                 | $1.261$    | $0.000$    |
+| â                 | $0.000$    | $0.088$    |
+| æ                 | $0.000$    | $0.000$    |
+| b                 | $1.825$    | $0.118$    |
+| c                 | $6.145$    | $0.340$    |
+| ç                 | $0.083$    | $0.000$    |
+| d                 | $7.754$    | $0.000$    |
+| e                 | $0.000$    | $21.872$   |
+| é                 | $0.000$    | $4.179$    |
+| è                 | $0.000$    | $0.560$    |
+| ê                 | $0.000$    | $0.214$    |
+| ë                 | $0.013$    | $0.000$    |
+| f                 | $2.194$    | $0.007$    |
+| g                 | $2.018$    | $0.000$    |
+| h                 | $2.347$    | $0.000$    |
+| i                 | $0.000$    | $10.730$   |
+| î                 | $0.000$    | $0.044$    |
+| ï                 | $0.000$    | $0.000$    |
+| j                 | $0.687$    | $0.000$    |
+| k                 | $0.091$    | $0.001$    |
+| l                 | $10.805$   | $0.000$    |
+| m                 | $4.943$    | $0.000$    |
+| n                 | $12.994$   | $0.000$    |
+| o                 | $0.000$    | $8.097$    |
+| ô                 | $0.000$    | $0.085$    |
+| œ                 | $0.020$    | $0.042$    |
+| p                 | $4.843$    | $0.372$    |
+| q                 | $1.184$    | $0.006$    |
+| r                 | $12.526$   | $0.000$    |
+| s                 | $13.594$   | $0.000$    |
+| t                 | $10.614$   | $1.435$    |
+| u                 | $0.053$    | $8.122$    |
+| ù                 | $0.048$    | $0.000$    |
+| û                 | $0.000$    | $0.033$    |
+| ü                 | $0.000$    | $0.000$    |
+| v                 | $2.474$    | $0.000$    |
+| w                 | $0.044$    | $0.000$    |
+| x                 | $1.020$    | $0.084$    |
+| y                 | $0.304$    | $0.271$    |
+| ÿ                 | $0.000$    | $0.000$    |
+| z                 | $0.114$    | $0.000$    | 
+
+
+
+#+CAPTION: Groupes formés - Est républicain - Alphabet complet
+#+NAME: rawfrenchgrp
+| Groupe 1                                                                                              | Groupe 2                                                                  | Hors groupes   |
+|-------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|----------------|
+| { à,  b,  c,  ç,  d,  ë,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  ù,  v,  w,  x,  y,  z } | { \textvisiblespace,  a,  â,  e,  é,  è,  ê,  i,  î,  o,  ô,  œ,  u,  û } | { æ, ï, ü, ÿ } |
+:END:
 
 ** Analyse sans accents et ligatures
 :PROPERTIES:
@@ -1410,7 +1493,7 @@ best prob: -137925.6412513305
 # #+END_SRC
 
 #+BEGIN_SRC ipython :exports none :noweb yes
-  <<print_probas>>
+  <<printprobas>>
   <<markov_report>>
 #+END_SRC
 

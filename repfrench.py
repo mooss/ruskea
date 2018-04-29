@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from markov import *
-
 from itertools import islice
 from markov import *
 
@@ -16,12 +14,38 @@ observations = list(islice(
 model = train_best_markov_model(
     2, len(alphabet),
     observations,
-    3,
-    8,
-    100)
+    nb_candidates=3,
+    train_iter=8,
+    max_iter=100)
 
+name = 'rawfrench'
+descr = ' - Est républicain - Alphabet complet'
 _, scale_factors = alpha_pass(model, observations)
 print('score', log_observation_sequence_probability(scale_factors))
+
+def orgmodetable(matrix, header=False):
+    maxlen = [0] * len(matrix[0])
+    for line in matrix:
+        for i, cell in enumerate(line):
+            if len(maxlen) <= i or len(str(cell)) > maxlen[i]:
+                maxlen[i] = len(str(cell))
+
+    def orgmodeline(line, fill=' '):
+        joinsep = fill + '|' + fill
+        return '|' + fill + joinsep.join(
+            str(cell) + fill * (mlen - len(str(cell)))
+            for cell, mlen in zip(line, maxlen)
+        ) + fill + '|'
+
+    result = ''
+    if header:
+        result = orgmodeline(matrix[0]) + '\n' + \
+            orgmodeline(('-') * len(maxlen), fill='-') + '\n'
+        matrix = matrix[1:]
+    result += '\n'.join(orgmodeline(line) for line in matrix)
+    return result
+
+
 def latexify(char):
     if char == ' ':
         return '\\textvisiblespace'
