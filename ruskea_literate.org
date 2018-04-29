@@ -1513,7 +1513,7 @@ Le script original a été modifié afin de n'extraire que les $N$ premiers cara
 
 Le texte est extrait dans le fichier =wiki_fi_50000.txt=.
 
-#+BEGIN_SRC bash :tangle create_finnish_text_file.sh :shebang "#!/usr/bin/env bash" :exports code :eval never
+#+BEGIN_SRC bash :tangle wikifiextract.sh :shebang "#!/usr/bin/env bash" :exports code :eval never
   ./make_wiki_corpus.py fiwiki-latest-pages-articles.xml.bz2 wiki_fi_50000.txt 50000
 #+END_SRC
 
@@ -1626,107 +1626,27 @@ L'approche adoptée est la même que celle utilisée pour le corpus français ; 
 * Sources                                                            :export:
 Stamp, Mark. (2018). A Revealing Introduction to Hidden Markov Models. https://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf.
 
-* 100 iter on brown backup
-#+RESULTS:
-#+begin_example
-27 [' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-50000 out of 50000
-1.0000299999999998
-1.00003
-the model never stopped improving
-CPU times: user 1min 59s, sys: 161 ms, total: 1min 59s
-Wall time: 1min 59s
-transition:
-[[0.23368789 0.76631211]
- [0.70597863 0.29402137]]
+* Testing scripts
 
-observation:
-[[2.80687985e-01 1.42581906e-01 1.40629293e-13 6.66524349e-04
-  3.56911264e-06 2.25725373e-01 1.37666921e-17 4.42155954e-03
-  4.87498731e-04 1.27752553e-01 6.73394223e-30 2.92496160e-03
-  5.50924144e-05 2.54038203e-14 9.00794057e-12 1.37718752e-01
-  1.83313919e-03 1.75675908e-23 5.22460779e-15 1.36925065e-04
-  2.03105974e-02 4.65458472e-02 3.21539099e-30 1.30524222e-18
-  6.21332760e-19 8.14771643e-03 4.60426291e-39]
- [6.47562560e-02 1.73259604e-05 2.12112202e-02 5.05695235e-02
-  6.67813143e-02 5.46638241e-10 3.43145283e-02 2.29783808e-02
-  7.06007667e-02 1.83269804e-12 2.26714128e-03 5.02886564e-03
-  7.28051731e-02 3.72349136e-02 1.14817257e-01 1.92319303e-06
-  3.28946287e-02 1.53704494e-03 1.00830148e-01 1.07044308e-01
-  1.32110256e-01 5.77443034e-07 1.63311025e-02 2.14417769e-02
-  4.53428257e-03 1.87385009e-02 1.15278370e-03]]
+#+BEGIN_SRC sh :tangle test_english.sh :shebang "#!/usr/bin/env bash"
+  ./brownextract.py
+  ./brownmarvin.py
+  ./brownrandom.py
+#+END_SRC
 
-initial states:
-[[1.00000000e+00 1.45406913e-11]]
-#+end_example
+#+BEGIN_SRC sh :tangle test_french.sh :shebang "#!/usr/bin/env bash"
+  ./repextract.py
+  ./repfrench.py
+#+END_SRC
 
-* 200 iterations on brown
-#+RESULTS:
-#+begin_example
-27 [' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-50000 out of 50000
-1.0000299999999998
-1.00003
-the model never stopped improving
-CPU times: user 3min 51s, sys: 345 ms, total: 3min 51s
-Wall time: 3min 52s
-transition:
-[[0.23221903 0.76778097]
- [0.70229989 0.29770011]]
+#+BEGIN_SRC sh :tangle test_finnish.sh :shebang "#!/usr/bin/env bash"
+  ./wikifiextract.sh
+  ./wikifinnish.py
+#+END_SRC
 
-observation:
-[[2.81739822e-001 1.43132488e-001 8.48434970e-039 9.75851831e-005
-  2.69362672e-015 2.26567133e-001 1.96209466e-052 3.91264554e-003
-  3.99838821e-004 1.28228959e-001 5.84694599e-089 2.88371026e-003
-  4.14028555e-011 8.80582911e-042 6.35909627e-035 1.38234418e-001
-  1.36580291e-003 1.62526402e-074 2.92938439e-044 4.11414990e-009
-  1.87721887e-002 4.67200518e-002 8.31615790e-092 2.25223167e-053
-  6.94701181e-054 7.94535098e-003 3.77091958e-115]
- [6.45306779e-002 2.28885541e-011 2.11388638e-002 5.09197312e-002
-  6.65567850e-002 3.53676378e-028 3.41974735e-002 2.33806094e-002
-  7.04417813e-002 4.39068533e-035 2.25940754e-003 5.05942349e-003
-  7.26074017e-002 3.71078968e-002 1.14425589e-001 7.88275501e-014
-  3.32161677e-002 1.53180173e-003 1.00486193e-001 1.06804872e-001
-  1.33136144e-001 1.33386835e-016 1.62753933e-002 2.13686341e-002
-  4.51881509e-003 1.88874875e-002 1.14885129e-003]]
-
-initial states:
-[[1.00000000e+00 2.47001026e-27]]
-#+end_example
-
-* rand res
-#+begin_example
-27 [' ', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-50000 out of 50000
-the model stopped improving at iteration 174
-CPU times: user 3min 28s, sys: 216 ms, total: 3min 28s
-Wall time: 3min 28s
-transition:
-[[0.2974586  0.7025414 ]
- [0.76846507 0.23153493]]
-
-observation:
-[[6.55124847e-02 5.71952340e-11 2.11330838e-02 5.08030870e-02
-  6.65385862e-02 3.93175379e-25 3.41881229e-02 2.32168465e-02
-  7.07175312e-02 2.43068346e-26 2.25878976e-03 5.05000573e-03
-  7.25875474e-02 3.70977504e-02 1.14394302e-01 4.80742210e-13
-  3.31094650e-02 1.53138289e-03 1.00458717e-01 1.06774963e-01
-  1.32618810e-01 4.32678209e-12 1.62709432e-02 2.13627913e-02
-  4.51757952e-03 1.87086727e-02 1.14853716e-03]
- [2.80742624e-01 1.43181293e-01 2.26272409e-29 2.09981536e-04
-  2.64622305e-10 2.26602508e-01 1.24335623e-37 4.08612102e-03
-  7.72735123e-05 1.28272682e-01 2.02411595e-67 2.89348203e-03
-  1.59773171e-09 3.42954114e-32 6.43777215e-29 1.38281553e-01
-  1.47305209e-03 1.26206542e-55 7.16990137e-37 7.74877804e-07
-  1.93046624e-02 4.67359820e-02 2.40155627e-72 2.12006626e-37
-  1.26711428e-45 8.13801016e-03 1.70507529e-93]]
-
-initial states:
-[[0.47197308 0.52802692]]
-#+end_example
-
-* Questions
- - "For example, the DP solution must have valid state transitions" ? How can transitions be invalid ?
- - Where does the initial states distribution matrix come from ?
- - Does $N \times M$ means $N$ rows $M$ columns or $N$ columns $M$ rows
+#+BEGIN_SRC sh :tangle test_all.sh :shebang "#!/usr/bin/env bash"
+  ./test_english.sh
+  ./test_french.sh
+  ./test_finnish.sh
+#+END_SRC
 
