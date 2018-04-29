@@ -831,6 +831,12 @@ initial states:
       corpus = repfile.read().replace('\n', '')
 #+END_SRC
 
+#+NAME: wikificorpus
+#+BEGIN_SRC ipython
+  with open('wiki_fi_50000.txt', 'r') as suofile:
+      corpus = suofile.read().replace('\n', '')
+#+END_SRC
+
 ** Alphabets
 
 #+NAME: latinalphabet
@@ -843,6 +849,10 @@ initial states:
   alphabet = ' aàâæbcçdeéèêëfghiîïjklmnoôœpqrstuùûüvwxyÿz'
 #+END_SRC
 
+#+NAME: finnishalphabet
+#+BEGIN_SRC ipython
+  alphabet = ' aäåbcdefghijklmnoöpqrstuvwxyz'
+#+END_SRC
 ** Observations
 
 #+NAME: rawObservations
@@ -1333,7 +1343,7 @@ Cette approche a ses limites, par exemple, il y a beaucoup de 'h' isolés à cau
 
 Il serait possible de créer des règles pour traiter ces cas particuliers. Cependant, ils semblent être statistiquement insignifiants, c'est pourquoi le choix a été fait de ne pas s'en soucier.
 
-** Analyse du texte brut
+** Analyse du texte
 :PROPERTIES:
 :header-args:ipython: :tangle repfrench.py :session repfrench :results output replace drawer
 :END:
@@ -1376,8 +1386,8 @@ Pour être sûr d'obtenir de bons résultats, le script est exécuté $50$ fois 
   done
 #+END_SRC
 
-#+BEGIN_SRC sh :tangle no :exports results :results replace drawer
-  best=$(grep -n score repfrench_execution_* | sort -k 2 -t ' ' | head -n1)
+#+BEGIN_SRC sh :tangle bestrepfrench.sh :exports results :results replace drawer :shebang "#!/usr/bin/env bash"
+  best=$(grep -n score repfrench_execution_* | sort -k 2 -t ' ' -gr | head -n1)
   file=$(echo $best | cut -f 1 -d ':')
   line=$(echo $best | cut -f 2 -d ':')
   tail --lines=+$((line + 1)) $file
@@ -1443,58 +1453,109 @@ Pour être sûr d'obtenir de bons résultats, le script est exécuté $50$ fois 
 | { à,  b,  c,  ç,  d,  ë,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  ù,  v,  w,  x,  y,  z } | { \textvisiblespace,  a,  â,  e,  é,  è,  ê,  i,  î,  o,  ô,  œ,  u,  û } | { æ, ï, ü, ÿ } |
 :END:
 
-** Analyse sans accents et ligatures
-:PROPERTIES:
-:header-args:ipython: :tangle repfrench_noaccent.py :session repfrench_noaccent :results output replace drawer
-:END:
+* Expérience sur un corpus finnois
+Le corpus va être extrait du dernier /dump/ du wikipédia finnois (https://dumps.wikimedia.org/fiwiki/latest/fiwiki-latest-pages-articles.xml.bz2), à l'aide de la bibliothèque gensim.
 
-#+BEGIN_SRC ipython :exports code :noweb yes :shebang "#!/usr/bin/env python3"
-  <<markovimport>>
+L'alphabet finnois est composé des 26 caractères de l'alphabet latin, et de trois voyelles supplémentaires (=äåö=). Parmi les 26 caractères latins, certains sont majoritairement utilisés dans des mots d'emprunt (=bcfgqwxz=). De plus =å= est un emprunt de l'alphabet suédois et n'est présent que dans des noms propres.
+** Extraction du texte
 
-  <<repcorpus>>
-
-  <<latinalphabet>>
-
-  <<observationsNoSpecials>>
-
-  <<trainfromscratch>>
+#+BEGIN_SRC bash :tangle download_latest_finnish_wikipedia_dump.sh :eval never :export none :shebang "#!/usr/bin/env bash"
+  wget -q --show-progress https://dumps.wikimedia.org/fiwiki/latest/fiwiki-latest-pages-articles.xml.bz2
 #+END_SRC
 
-#+RESULTS:
-:RESULTS:
-candidate prob: -137931.02641606686
-best prob: -137925.6412513305
-candidate prob: -138041.7784606232
-best prob: -137925.6412513305
-candidate prob: -138044.73346667207
-best prob: -137925.6412513305
-candidate prob: -138036.2189776177
-best prob: -137925.6412513305
-candidate prob: -138036.95136939193
-best prob: -137925.6412513305
-candidate prob: -138014.5660628149
-best prob: -137925.6412513305
-candidate prob: -138041.18285977026
-best prob: -137925.6412513305
-candidate prob: -138038.7428735029
-best prob: -137925.6412513305
-candidate prob: -138033.43233621362
-best prob: -137925.6412513305
-candidate prob: -138026.15796260338
-best prob: -137925.6412513305
-[[' ', 0.3082149053176461, 6.942959849983107e-09], ['a', 0.122804848531593, 0.016336732820510954], ['b', 0.0012453673732095807, 0.018154048980993636], ['c', 0.0034801094300594888, 0.06206847288886445], ['d', 2.128478774524188e-20, 0.07743142483141699], ['e', 0.2692502882687037, 7.2320418001476235e-09], ['f', 9.639358663710727e-05, 0.02183404908882054], ['g', 1.208733975825522e-07, 0.020155636901870857], ['h', 1.1161790038167634e-09, 0.023434918896166505], ['i', 0.10782545331618615, 2.3615420189701233e-15], ['j', 3.9976552941270743e-54, 0.006864332974891336], ['k', 1.3064056179437364e-06, 0.0009166097243793307], ['l', 1.1518505520609156e-21, 0.10786184362456788], ['m', 1.6189403779781487e-23, 0.04936198680670307], ['n', 4.042428777763478e-09, 0.12972277187109535], ['o', 0.08246343216010521, 7.723039012634197e-26], ['p', 0.0038491708088197953, 0.04820698048942567], ['q', 6.002370913944218e-05, 0.011821156409917814], ['r', 1.2866292218907536e-13, 0.1250445369946814], ['s', 7.918670638327058e-15, 0.13571267231886416], ['t', 0.014607034455976102, 0.10566492531830633], ['u', 0.08249909703923589, 1.4215099318167195e-06], ['v', 3.0110013119311217e-36, 0.024702854336392552], ['w', 3.89745198810708e-38, 0.0004372186608211075], ['x', 0.0008271984809118574, 0.01021169834972511], ['y', 0.0027752450839274587, 0.002916923508644365], ['z', 3.0850132596018852e-31, 0.0011367685181348749]]
-[[' ', 'a', 'e', 'i', 'o', 'u'], ['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'y', 'z']]
+Le script suivant (=make_wiki_corpus.py=), partiellement recopié depuis https://www.kdnuggets.com/2017/11/building-wikipedia-text-corpus-nlp.html, est utilisé pour transformer le /dump/ wikipédia en un fichier texte.
+
+Le script original a été modifié afin de n'extraire que les $N$ premiers caractères.
+
+#+BEGIN_SRC ipython :tangle make_wiki_corpus.py :shebang "#!/usr/bin/env python3" :exports code :eval never
+  """
+  Creates a corpus from Wikipedia dump file.
+  Inspired by:
+  https://github.com/panyang/Wikipedia_Word2vec/blob/master/v1/process_wiki.py
+  """
+
+  import sys
+  from itertools import chain
+  from gensim.corpora import WikiCorpus
+
+  def get_n_chars(wiki, n):
+      nbchar = 0
+      charbuffer = []
+      for text in wiki.get_texts():
+          for word in text:
+              for char in chain(word, ' '):
+                  if nbchar < n:
+                      nbchar += 1
+                      charbuffer.append(char)
+                  else:
+                      return charbuffer
+      return charbuffer
+
+
+  def make_corpus(in_f, out_f, maxchar):
+      wiki = WikiCorpus(in_f)
+      charbuffer = get_n_chars(wiki, maxchar)
+      with open(out_f, 'w') as output:
+          output.write(''.join(charbuffer))
+
+
+  if __name__ == '__main__':
+
+      if len(sys.argv) != 4:
+          print('Usage: python make_wiki_corpus.py <wikipedia_dump_file> <processed_text_file> <number_of_characters>')
+          sys.exit(1)
+      in_f = sys.argv[1]
+      out_f = sys.argv[2]
+      maxchar = int(sys.argv[3])
+      make_corpus(in_f, out_f, maxchar)
+#+END_SRC
+
+Le texte est extrait dans le fichier =wiki_fi_50000.txt=.
+
+#+BEGIN_SRC bash :tangle create_text_file.sh :shebang "#!/usr/bin/env bash" :exports code :eval never
+  ./make_wiki_corpus.py fiwiki-latest-pages-articles.xml.bz2 wiki_fi_50000.txt 50000
+#+END_SRC
+
+** Analyse du texte
+:PROPERTIES:
+:header-args:ipython: :tangle wikifinnish.py :eval never
 :END:
 
- 
-# #+BEGIN_SRC ipython :exports results :tangle no :noweb yes
-#   ## markov_report(repmarkov_latin, repalphabet_latin)
-#   <<markovreport>>
-# #+END_SRC
+#+BEGIN_SRC ipython :exports code :shebang "#!/usr/bin/env python3" :noweb yes
+  <<markovimport>>
 
-#+BEGIN_SRC ipython :exports none :noweb yes
+  <<wikificorpus>>
+
+  <<finnishalphabet>>
+
+  <<rawObservations>>
+
+  <<trainbest>>
+#+END_SRC
+
+#+BEGIN_SRC ipython :exports none :eval no :noweb yes
+  name = 'finnish'
+  descr = ' - Wikipédia finnois'
   <<printprobas>>
+
+  <<deforgmodetable>>
+
+
   <<markov_report>>
+#+END_SRC
+
+#+BEGIN_SRC sh :shebang "#!/usr/bin/env bash" :eval never :exports none :tangle wikifinnish50times.sh :exports none
+  for((i=0; i<50; ++i));
+  do
+      ./repfrench.py > wikifinnish_execution_$i &
+  done
+#+END_SRC
+
+#+BEGIN_SRC sh :tangle bestwikifinnish.sh :exports results :results replace drawer :shebang "#!/usr/bin/env bash"
+  best=$(grep -n score wikifinnish_execution_* | sort -k 2 -t ' ' -gr | head -n1)
+  file=$(echo $best | cut -f 1 -d ':')
+  line=$(echo $best | cut -f 2 -d ':')
+  tail --lines=+$((line + 1)) $file
 #+END_SRC
 
 
