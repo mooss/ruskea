@@ -38,12 +38,8 @@ observations = list(islice(
     map_el_to_int(translate(corpus, translations), alphabet),
     0, 50000))
 
-model = train_best_markov_model(
-    2, len(alphabet),
-    observations,
-    20,
-    4,
-    100)
+model = markovmodel.fromscratch(2, len(alphabet))
+train_markov_model(model, observations, 100)
 
 _, scale_factors = alpha_pass(model, observations)
 print('score', log_observation_sequence_probability(scale_factors))
@@ -58,9 +54,18 @@ scoretable = [[latexify(line[0]),
                *('${:.3f}$'.format(probas * 100) for probas in line[1:])]
               for line in scoretable]
 scoretable.insert(0, ['caractère', 'État 1 (%)', 'État 2 (%)'])
-print('#+ATTR_LATEX: :align l l l\n',
-      '#+CAPTION: répartition des caractères', sep='')
+print('#+ATTR_LATEX: :align l l l')
+caption = '#+CAPTION: Répartition des caractères'
+
 try:
+    descr
+    caption = caption + descr
+except NameError:
+    pass
+print(caption)
+
+try:
+    name
     print('#+NAME:', name + 'rep')
 except NameError:
     pass
@@ -76,8 +81,16 @@ if len(ungroupables) > 0:
     groupstable[1].insert(
         len(ungroupables), '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
 
-print('#+CAPTION: groupes formés')
+caption = '#+CAPTION: Groupes formés'
 try:
+    descr
+    caption = caption + descr
+except NameError:
+    pass
+print(caption)
+
+try:
+    name
     print('#+NAME:', name + 'grp')
 except NameError:
     pass

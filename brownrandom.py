@@ -11,9 +11,9 @@ observations = list(islice(
     map_el_to_int(corpus, alphabet),
     0, 50000))
 
-model = train_best_markov_model(
-    2, len(alphabet),
-    observations,
-    20,
-    4,
-    100)
+model = markovmodel.fromscratch(2, len(alphabet))
+train_markov_model(model, observations, 100)
+
+scoretable, groups, ungroupables = markov_alphabetical_analysis(model, alphabet)
+print(scoretable)
+print(groups)

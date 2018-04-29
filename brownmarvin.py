@@ -20,3 +20,7 @@ model = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_t
 train_markov_model(model,
                    list(map_el_to_int(corpus, alphabet)),
                    max_iterations=100)
+
+scoretable, groups, ungroupables = markov_alphabetical_analysis(model, alphabet)
+print(scoretable)
+print(groups)

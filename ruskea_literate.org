@@ -886,30 +886,48 @@ initial states:
       0, 50000))
 #+END_SRC
 
-** Autres
-
-#+NAME: markovimport
-#+BEGIN_SRC ipython
-  from itertools import islice
-  from markov import *
-#+END_SRC
-
-#+NAME: trainfromscratch
-#+BEGIN_SRC ipython
-  model = train_best_markov_model(
-      2, len(alphabet),
-      observations,
-      20,
-      4,
-      100)
-#+END_SRC
-
+** Affichage
 #+NAME: print_probas
 #+BEGIN_SRC ipython
   _, scale_factors = alpha_pass(model, observations)
   print('score', log_observation_sequence_probability(scale_factors))
 #+END_SRC
 
+#+NAME: printresults
+#+BEGIN_SRC ipython
+  scoretable, groups, ungroupables = markov_alphabetical_analysis(model, alphabet)
+  print(scoretable)
+  print(groups)
+#+END_SRC
+
+# #+NAME: printmodel
+# #+BEGIN_SRC ipython
+#   print('#+CAPTION: Matrice des transitions')
+#   try:
+#       name
+#       print('#+NAME:', name + 'tra')
+#   except NameError:
+#       pass
+#   print(orgmodetable(model.transition_matrix))
+#   print()
+
+#   print('#+CAPTION: Matrice des observations')
+#   try:
+#       name
+#       print('#+NAME:', name + 'obs')
+#   except NameError:
+#       pass
+#   print(orgmodetable(model.observation_matrix))
+#   print()
+
+#   print('#+CAPTION: Matrice des états initiaux')
+#   try:
+#       name
+#       print('#+NAME:', name + 'ini')
+#   except NameError:
+#       pass
+#   print(orgmodetable(model.initial_state_distribution))
+# #+END_SRC
 
 #+NAME: markov_report
 #+BEGIN_SRC ipython
@@ -924,9 +942,18 @@ initial states:
                  ,*('${:.3f}$'.format(probas * 100) for probas in line[1:])]
                 for line in scoretable]
   scoretable.insert(0, ['caractère', 'État 1 (%)', 'État 2 (%)'])
-  print('#+ATTR_LATEX: :align l l l\n',
-        '#+CAPTION: répartition des caractères', sep='')
+  print('#+ATTR_LATEX: :align l l l')
+  caption = '#+CAPTION: Répartition des caractères'
+
   try:
+      descr
+      caption = caption + descr
+  except NameError:
+      pass
+  print(caption)
+
+  try:
+      name
       print('#+NAME:', name + 'rep')
   except NameError:
       pass
@@ -942,8 +969,16 @@ initial states:
       groupstable[1].insert(
           len(ungroupables), '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
 
-  print('#+CAPTION: groupes formés')
+  caption = '#+CAPTION: Groupes formés'
   try:
+      descr
+      caption = caption + descr
+  except NameError:
+      pass
+  print(caption)
+
+  try:
+      name
       print('#+NAME:', name + 'grp')
   except NameError:
       pass
@@ -951,18 +986,42 @@ initial states:
 #+END_SRC
 
 
+** Autres
+
+#+NAME: markovimport
+#+BEGIN_SRC ipython
+  from itertools import islice
+  from markov import *
+#+END_SRC
+
+#+NAME: trainfromscratch
+#+BEGIN_SRC ipython
+  model = markovmodel.fromscratch(2, len(alphabet))
+  train_markov_model(model, observations, 100)
+#+END_SRC
+
+#+NAME: trainbest
+#+BEGIN_SRC ipython
+  model = train_best_markov_model(
+      2, len(alphabet),
+      observations,
+      3,
+      8,
+      100)
+#+END_SRC
+
 * Introduction                                                       :export:
 L'expérience de "Marvin le martien" (Stamp 2018) montre qu'il est possible d'extraire des caractéristiques linguistiques à partir d'un corpus de petite taille (50000 caractères), et ce sans connaissances préalables sur la langue du corpus.
 Cette expérience consiste à entrainer des modèles de Markov cachés comprenant deux états sur le corpus.
 Les deux états ainsi formés regroupent d'une part les consonnes et d'autre part les voyelles.
 
-Nous allons dans un premier temps reproduire cette expérience sur le corpus évoqué dans Stamp (2018), puis nous allons mener une expérience similaire sur un corpus en langue française.
+Nous allons dans un premier temps reproduire cette expérience sur le corpus évoqué dans (Stamp 2018), puis nous allons mener une expérience similaire sur un corpus en langue française.
 
 Le choix a été fait d'implémenter en python l'algorithme d'entrainement d'un modèle de markov caché. Cette implémentation, de même que ce rapport sont disponibles sur github à l'adresse suivante : https://github.com/mooss/ruskea.
 
 * Reproduction de l'expérience sur le /Brown corpus/                 :export:
 
-Cette section décrit les efforts fait pour reproduire l'expérience de "Marvin le martien" sur le /Brown corpus/.
+Cette section décrit la démarche entreprise pour reproduire l'expérience de "Marvin le martien" sur le /Brown corpus/.
 Dans un premier temps la méthode utilisée pour extraire les 50000 premiers caractères du /Brown corpus/ va être détaillée.
 Ensuite, une reproduction de l'expérience va être effectuée en utilisant les matrices proposées dans (Stamp 2018).
 Finalement, l'expérience va être reproduite en initialisant les matrices procéduralement.
@@ -1039,6 +1098,10 @@ Les matrices de transitions, observations, et des états initiaux sont initialis
 
 #+END_SRC
 
+#+BEGIN_SRC ipython :exports none :eval no :noweb yes
+  <<printresults>>
+#+END_SRC
+
 Une tolérence relative de 1e^{-3} est appliquée à la construction du modèle pour vérifier la stochasticité des matrice. Sans cette tolérance élevé, l'étape de vérification de la stochasticité des matrices échoue.
 
 Les valeurs ont été copiées telles quelles depuis l'article. Il est probables que ces valeurs aient été arrondies par l'auteur de l'article, d'où la nécessité d'assouplir le test de stochasticité.
@@ -1056,13 +1119,14 @@ Les résultats obtenus sont les mêmes que ceux présentés dans (Stamp 2018), �
 
 #+BEGIN_SRC ipython :tangle no :exports results :noweb yes
   name = 'marvin'
+  descr = ' - /Brown corpus/ - Matrices pré-initialisées'
   <<markov_report>>
 #+END_SRC
 
 #+RESULTS:
 :RESULTS:
 #+ATTR_LATEX: :align l l l
-#+CAPTION: répartition des caractères
+#+CAPTION: Répartition des caractères - /Brown corpus/ - Matrices pré-initialisées
 #+NAME: marvinrep
 | caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
@@ -1096,7 +1160,7 @@ Les résultats obtenus sont les mêmes que ceux présentés dans (Stamp 2018), �
 
 
 
-#+CAPTION: groupes formés
+#+CAPTION: Groupes formés - /Brown corpus/ - Matrices pré-initialisées
 #+NAME: marvingrp
 | Groupe 1                                  | Groupe 2                                                                              |
 |-------------------------------------------|---------------------------------------------------------------------------------------|
@@ -1105,18 +1169,27 @@ Les résultats obtenus sont les mêmes que ceux présentés dans (Stamp 2018), �
 
 ** Matrices générées procéduralement
 :PROPERTIES:
-:header-args:ipython: :session brownrandomexec :results output replace drawer
+:header-args:ipython: :session brownrandomexec :results output replace drawer :tangle brownrandom.py
 :END:
 
-L'article de Mark Stamp ne fournissait que peu de détails concernant l'initialisation des matrices de transition, observation et répartition initiale des états.
+L'article de Mark Stamp ne fournit que peu de détails concernant l'initialisation des matrices de transition, d'observation et de répartition initiale des états.
 En effet, la seule indication donnée est d'initialiser les éléments de chaque ligne à environ $1/X$, $X$ étant le nombre d'éléments dans la ligne.
 
-C'est un problème car en utilisant des matrices d'une forme similaire à celle utilisée dans la section précédentes, nous sommes susceptibles d'obtenir des résultat différents.
+Le probème est qu'en utilisant des matrices d'une forme similaire à celle proposée dans l'article, les résultats sont susceptible de différer grandement.
 
-Après beaucoup d'essais infructeux, une solution satisfaisante a été trouvée.
-La méthode =markovmodel.fromscratch= permettant d'initialiser un modèle de Markov est visible dans =markov.py=.
+Après beaucoup d'essais infructeux, une solution satisfaisante a été trouvée ; elle consiste à initialiser les matrices à $1/X$ et parcourir chacune des lignes en y ajoutant ou en retranchant un nombre aléatoire entre $a$ et $b$, dont les valeurs sont dans la table [[bornes_alea]]. Les lignes ainsi crées sont ensuite rendues stochastiques en multipliant chacune de leurs cases par une constante $N$ telle que :
+$$N = \frac{1}{\sum\limits_{el \in ligne}^ {}{el}}$$
 
-#+BEGIN_SRC ipython :exports code :noweb yes :tangle brownrandom.py :shebang "#!/usr/bin/env python3"
+#+CAPTION: Bornes aléatoires
+#+NAME: bornes_alea
+| Matrice      |   $a$ |   $b$ |
+| Transitions  | 0.000 | 0.005 |
+| Observations |  0.02 | 0.025 |
+| État initial | 0.001 | 0.005 |
+
+Cette solution est implémentée dans la méthode =markovmodel.fromscratch=, visible dans le fichier =markov.py=.
+
+#+BEGIN_SRC ipython :exports code :noweb yes :shebang "#!/usr/bin/env python3" :results silent
   <<markovimport>>
 
   <<browncorpus>>
@@ -1126,77 +1199,63 @@ La méthode =markovmodel.fromscratch= permettant d'initialiser un modèle de Mar
   <<rawObservations>>
 
   <<trainfromscratch>>
+
 #+END_SRC
 
-#+RESULTS:
-:RESULTS:
-candidate prob: -141786.65054722823
-best prob: -141786.65054722823
-candidate prob: -141840.441896181
-best prob: -141786.65054722823
-candidate prob: -141842.98628147983
-best prob: -141786.65054722823
-candidate prob: -141841.1987589144
-best prob: -141786.65054722823
-candidate prob: -141842.53489207232
-best prob: -141786.65054722823
-candidate prob: -141803.5825126804
-best prob: -141786.65054722823
-candidate prob: -141838.55148309685
-best prob: -141786.65054722823
-candidate prob: -141803.49828079264
-best prob: -141786.65054722823
-candidate prob: -141837.1596564061
-best prob: -141786.65054722823
-candidate prob: -141834.68399909168
-best prob: -141786.65054722823
-[[' ', 0.2798627130811426, 0.06622028907197094], ['a', 0.14311235909888784, 6.334591627180954e-09], ['b', 3.1491112299604715e-23, 0.021141583024661098], ['c', 0.00031317343547325807, 0.05072900582585306], ['d', 2.419856920047442e-08, 0.06656532441063075], ['e', 0.2265352807577565, 1.4898193378347084e-19], ['f', 1.8624022048297262e-29, 0.034201872538083655], ['g', 0.0042286880299555055, 0.023093935305004115], ['h', 0.00027893077911133446, 0.07056142190476801], ['i', 0.12821093218053167, 4.859312199344216e-20], ['j', 3.2991262870933935e-52, 0.002259698185607062], ['k', 0.0029057387145665662, 0.005039547362859914], ['l', 8.404134654639013e-08, 0.07261666479569835], ['m', 2.480633796525442e-25, 0.037112670200899214], ['n', 1.9285805868712001e-22, 0.11444030811175099], ['o', 0.13821498435037421, 2.972082006305563e-10], ['p', 0.001600212730723405, 0.033005780134726444], ['q', 1.630790522879573e-43, 0.0015319987699029718], ['r', 1.5759874174671412e-28, 0.10049911930563549], ['s', 6.796346871407926e-06, 0.10681239558454744], ['t', 0.019685171093954828, 0.13231547801410035], ['u', 0.046713482466232935, 1.051338351913883e-09], ['v', 2.3835278616299776e-55, 0.016277486930218927], ['w', 3.0982618236773054e-29, 0.021371382840146662], ['x', 7.145086705958905e-35, 0.004519396371213874], ['y', 0.008331428694511797, 0.018535634551197774], ['z', 1.862892981874014e-70, 0.0011489990774272017]]
-[[' ', 'a', 'e', 'i', 'o', 'u'], ['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'y', 'z']]
-:END:
+#+BEGIN_SRC ipython :exports none :eval no :noweb yes
+  <<printresults>>
+#+END_SRC
 
+Des résultats identiques à ceux de l'expérience originale ont été retrouvés dans 45 des 50 exécutions du script ci-dessus. Les tables [[randbrownrep]] et [[randbrowngrp]] montrent le résultat d'une de ces exécutions.
 
 #+BEGIN_SRC ipython :tangle no :exports results :noweb yes
+  name = 'randbrown'
+  descr = ' - /Brown corpus/ - Matrices initialisées procéduralement'
   <<markov_report>>
 #+END_SRC
 
 #+RESULTS:
 :RESULTS:
 #+ATTR_LATEX: :align l l l
+#+CAPTION: Répartition des caractères - /Brown corpus/ - Matrices initialisées procéduralement
+#+NAME: randbrownrep
 | caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
-| \textvisiblespace | $0.020$    | $33.180$   |
-| a                 | $0.008$    | $13.481$   |
-| b                 | $2.239$    | $0.000$    |
-| c                 | $5.402$    | $0.001$    |
-| d                 | $7.050$    | $0.000$    |
-| e                 | $0.057$    | $21.292$   |
-| f                 | $3.622$    | $0.000$    |
-| g                 | $2.730$    | $0.122$    |
-| h                 | $6.055$    | $1.406$    |
-| i                 | $0.000$    | $12.084$   |
-| j                 | $0.239$    | $0.000$    |
-| k                 | $0.537$    | $0.270$    |
-| l                 | $7.436$    | $0.248$    |
-| m                 | $3.931$    | $0.000$    |
-| n                 | $12.121$   | $0.000$    |
-| o                 | $0.001$    | $13.027$   |
-| p                 | $3.591$    | $0.058$    |
-| q                 | $0.162$    | $0.000$    |
-| r                 | $10.644$   | $0.000$    |
-| s                 | $11.307$   | $0.007$    |
-| t                 | $15.514$   | $0.397$    |
-| u                 | $0.000$    | $4.403$    |
-| v                 | $1.724$    | $0.000$    |
-| w                 | $2.264$    | $0.000$    |
-| x                 | $0.479$    | $0.000$    |
-| y                 | $2.745$    | $0.025$    |
-| z                 | $0.122$    | $0.000$    | 
+| \textvisiblespace | $27.281$   | $7.311$    |
+| a                 | $14.345$   | $0.000$    |
+| b                 | $0.000$    | $2.110$    |
+| c                 | $0.033$    | $5.061$    |
+| d                 | $0.001$    | $6.641$    |
+| e                 | $22.708$   | $0.000$    |
+| f                 | $0.000$    | $3.413$    |
+| g                 | $0.514$    | $2.222$    |
+| h                 | $0.000$    | $7.066$    |
+| i                 | $12.852$   | $0.000$    |
+| j                 | $0.000$    | $0.225$    |
+| k                 | $0.297$    | $0.498$    |
+| l                 | $0.000$    | $7.246$    |
+| m                 | $0.000$    | $3.703$    |
+| n                 | $0.000$    | $11.419$   |
+| o                 | $13.855$   | $0.000$    |
+| p                 | $0.221$    | $3.238$    |
+| q                 | $0.000$    | $0.153$    |
+| r                 | $0.000$    | $10.028$   |
+| s                 | $0.024$    | $10.637$   |
+| t                 | $2.216$    | $12.982$   |
+| u                 | $4.681$    | $0.001$    |
+| v                 | $0.000$    | $1.624$    |
+| w                 | $0.000$    | $2.132$    |
+| x                 | $0.000$    | $0.451$    |
+| y                 | $0.973$    | $1.724$    |
+| z                 | $0.000$    | $0.115$    | 
 
 
 
-| Groupe 1                                                                              | Groupe 2                                  |
-|---------------------------------------------------------------------------------------|-------------------------------------------|
-| { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } | { \textvisiblespace,  a,  e,  i,  o,  u } |
+#+CAPTION: Groupes formés - /Brown corpus/ - Matrices initialisées procéduralement
+#+NAME: randbrowngrp
+| Groupe 1                                  | Groupe 2                                                                              |
+|-------------------------------------------|---------------------------------------------------------------------------------------|
+| { \textvisiblespace,  a,  e,  i,  o,  u } | { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } |
 :END:
 
 
@@ -1263,7 +1322,7 @@ Il serait possible de créer des règles pour traiter ces cas particuliers. Cepe
 
   <<rawObservations>>
 
-  <<trainfromscratch>>
+  <<trainbest>>
 #+END_SRC
 
 #+RESULTS:
