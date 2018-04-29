@@ -1,6 +1,6 @@
 #+TITLE: Distanciel modèles de Markov cachés
 #+AUTHOR: Félix Jamet
-#+OPTIONS: toc:2
+#+OPTIONS: toc:2 tags:nil
 #+LANGUAGE: fr
 #+PROPERTY: header-args:ipython :session markexec :results silent :tangle markov.py :eval no-export :noweb yes
 
