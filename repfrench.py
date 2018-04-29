@@ -74,15 +74,15 @@ except NameError:
     pass
 print(orgmodetable(scoretable, header=True), '\n\n\n')
 
-groupstable = [['{ ' + ',  '.join((latexify(char) for char in group)) + ' }'
+groupstable = [['{ ' + ', '.join((latexify(char) for char in group)) + ' }'
                   for group in groups] ]
 groupstable.insert(0, ['Groupe 1', 'Groupe 2'])
 
 if len(ungroupables) > 0:
-    groupstable[0].insert(
-        len(ungroupables), 'Hors groupes')
-    groupstable[1].insert(
-        len(ungroupables), '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
+    groupstable[0].append(
+        'Hors groupes')
+    groupstable[1].append(
+        '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
 
 caption = '#+CAPTION: Groupes formés'
 try:

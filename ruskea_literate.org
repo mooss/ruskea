@@ -969,15 +969,15 @@ initial states:
       pass
   print(orgmodetable(scoretable, header=True), '\n\n\n')
 
-  groupstable = [['{ ' + ',  '.join((latexify(char) for char in group)) + ' }'
+  groupstable = [['{ ' + ', '.join((latexify(char) for char in group)) + ' }'
                     for group in groups] ]
   groupstable.insert(0, ['Groupe 1', 'Groupe 2'])
 
   if len(ungroupables) > 0:
-      groupstable[0].insert(
-          len(ungroupables), 'Hors groupes')
-      groupstable[1].insert(
-          len(ungroupables), '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
+      groupstable[0].append(
+          'Hors groupes')
+      groupstable[1].append(
+          '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
 
   caption = '#+CAPTION: Groupes formés'
   try:
@@ -1352,9 +1352,10 @@ Que ce soit à cause de la taille accrue de l'alphabet, ou des particularités d
 
 Une nouvelle approche s'est donc imposée.
 En plus du système d'initialisation de matrices décrit précédemment, $N$ modèles sont entrainés $M$ fois et le meilleur d'entre eux est selectionné pour continuer l'entrainement jusquà $100$.
+On a ici $N=3$ et $M=8$.
 
 Cette approche n'est cependant pas suffisante, les résultats de plusieurs exécutions restent grandement différents.
-Pour être sûr d'obtenir de bons résultats, le script est exécuté $50$ fois et le meilleur modèle est conservé.
+Pour être sûr d'obtenir de bons résultats, le script est exécuté $50$ fois et le meilleur modèle est conservé, c'est à dire celui maximisant la probabilité de la chaine d'observation.
 
 #+BEGIN_SRC ipython :exports code :shebang "#!/usr/bin/env python3" :noweb yes
   <<markovimport>>
@@ -1453,13 +1454,13 @@ Pour être sûr d'obtenir de bons résultats, le script est exécuté $50$ fois 
 | { à,  b,  c,  ç,  d,  ë,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  ù,  v,  w,  x,  y,  z } | { \textvisiblespace,  a,  â,  e,  é,  è,  ê,  i,  î,  o,  ô,  œ,  u,  û } | { æ, ï, ü, ÿ } |
 :END:
 
-* Expérience sur un corpus finnois
+* Expérience sur un corpus finnois                                   :export:
 Le corpus va être extrait du dernier /dump/ du wikipédia finnois (https://dumps.wikimedia.org/fiwiki/latest/fiwiki-latest-pages-articles.xml.bz2), à l'aide de la bibliothèque gensim.
 
-L'alphabet finnois est composé des 26 caractères de l'alphabet latin, et de trois voyelles supplémentaires (=äåö=). Parmi les 26 caractères latins, certains sont majoritairement utilisés dans des mots d'emprunt (=bcfgqwxz=). De plus =å= est un emprunt de l'alphabet suédois et n'est présent que dans des noms propres.
+L'alphabet finnois est composé des 26 caractères de l'alphabet latin, et de trois voyelles supplémentaires (=äåö=). Parmi les 26 caractères latins, certains sont majoritairement utilisés dans des mots d'emprunt (=bcfgqwxz=). De plus, =å= est un emprunt de l'alphabet suédois et n'est présent que dans des noms propres.
 ** Extraction du texte
 
-#+BEGIN_SRC bash :tangle download_latest_finnish_wikipedia_dump.sh :eval never :export none :shebang "#!/usr/bin/env bash"
+#+BEGIN_SRC bash :tangle download_latest_finnish_wikipedia_dump.sh :eval never :exports none :shebang "#!/usr/bin/env bash"
   wget -q --show-progress https://dumps.wikimedia.org/fiwiki/latest/fiwiki-latest-pages-articles.xml.bz2
 #+END_SRC
 
@@ -1512,7 +1513,7 @@ Le script original a été modifié afin de n'extraire que les $N$ premiers cara
 
 Le texte est extrait dans le fichier =wiki_fi_50000.txt=.
 
-#+BEGIN_SRC bash :tangle create_text_file.sh :shebang "#!/usr/bin/env bash" :exports code :eval never
+#+BEGIN_SRC bash :tangle create_finnish_text_file.sh :shebang "#!/usr/bin/env bash" :exports code :eval never
   ./make_wiki_corpus.py fiwiki-latest-pages-articles.xml.bz2 wiki_fi_50000.txt 50000
 #+END_SRC
 
@@ -1520,6 +1521,8 @@ Le texte est extrait dans le fichier =wiki_fi_50000.txt=.
 :PROPERTIES:
 :header-args:ipython: :tangle wikifinnish.py :eval never
 :END:
+
+L'approche adoptée est la même que celle utilisée pour le corpus français ; $N$ modèles sont entrainés $M$ fois, le meilleur est par la suite entrainé $100-N$ fois. Ce processus est répété 50 fois, et les résultats du meilleur modèle sont conservés. Ces résultats sont visibles dans les tables [[finnishrep]] et [[finnishgrp]].
 
 #+BEGIN_SRC ipython :exports code :shebang "#!/usr/bin/env python3" :noweb yes
   <<markovimport>>
@@ -1547,7 +1550,7 @@ Le texte est extrait dans le fichier =wiki_fi_50000.txt=.
 #+BEGIN_SRC sh :shebang "#!/usr/bin/env bash" :eval never :exports none :tangle wikifinnish50times.sh :exports none
   for((i=0; i<50; ++i));
   do
-      ./repfrench.py > wikifinnish_execution_$i &
+      ./wikifinnish.py > wikifinnish_execution_$i &
   done
 #+END_SRC
 
@@ -1558,8 +1561,69 @@ Le texte est extrait dans le fichier =wiki_fi_50000.txt=.
   tail --lines=+$((line + 1)) $file
 #+END_SRC
 
+#+RESULTS:
+:RESULTS:
+#+ATTR_LATEX: :align l l l
+#+CAPTION: Répartition des caractères - Wikipédia finnois
+#+NAME: finnishrep
+| caractère         | État 1 (%) | État 2 (%) |
+|-------------------|------------|------------|
+| \textvisiblespace | $5.488$    | $18.367$   |
+| a                 | $0.040$    | $21.883$   |
+| ä                 | $0.006$    | $4.969$    |
+| å                 | $0.000$    | $0.000$    |
+| b                 | $0.738$    | $0.000$    |
+| c                 | $0.200$    | $0.166$    |
+| d                 | $2.596$    | $0.000$    |
+| e                 | $0.000$    | $13.650$   |
+| f                 | $0.356$    | $0.003$    |
+| g                 | $0.693$    | $0.191$    |
+| h                 | $2.930$    | $0.000$    |
+| i                 | $0.000$    | $17.048$   |
+| j                 | $4.034$    | $0.000$    |
+| k                 | $9.688$    | $0.000$    |
+| l                 | $10.982$   | $0.000$    |
+| m                 | $6.288$    | $0.000$    |
+| n                 | $15.548$   | $0.000$    |
+| o                 | $0.000$    | $9.858$    |
+| ö                 | $0.000$    | $0.800$    |
+| p                 | $3.288$    | $0.000$    |
+| q                 | $0.004$    | $0.000$    |
+| r                 | $5.567$    | $0.000$    |
+| s                 | $12.405$   | $0.303$    |
+| t                 | $15.074$   | $0.000$    |
+| u                 | $0.000$    | $10.069$   |
+| v                 | $3.742$    | $0.000$    |
+| w                 | $0.173$    | $0.000$    |
+| x                 | $0.045$    | $0.000$    |
+| y                 | $0.000$    | $2.696$    |
+| z                 | $0.115$    | $0.000$    | 
 
-* Sources
+
+
+#+CAPTION: Groupes formés - Wikipédia finnois
+#+NAME: finnishgrp
+| Groupe 1                                                                          | Hors groupes | Groupe 2                                              |
+|-----------------------------------------------------------------------------------|--------------|-------------------------------------------------------|
+| { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  z } | { å }        | { \textvisiblespace,  a,  ä,  e,  i,  o,  ö,  u,  y } |
+:END:
+
+
+#+BEGIN_SRC sh :shebang "#!/usr/bin/env bash" :exports none :results replace drawer output
+  pattern='wikifinnish_execution_'
+  well_formed=$(cat $pattern* | grep -c "\\textvisiblespace,  a,  ä,  e,  i,  o,  ö,  u,  y }")
+  total=$(ls -1  $pattern* | wc -l)
+  percentage=$(bc <<<"scale=3;$well_formed/$total")
+  
+  echo "$x : $percentage ($well_formed / $total)"
+#+END_SRC
+
+#+RESULTS:
+:RESULTS:
+ : .600 (30 / 50)
+:END:
+
+* Sources                                                            :export:
 Stamp, Mark. (2018). A Revealing Introduction to Hidden Markov Models. https://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf.
 
 * 100 iter on brown backup
