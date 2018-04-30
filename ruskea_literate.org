@@ -995,8 +995,25 @@ initial states:
   print(orgmodetable(groupstable, header=True))
 #+END_SRC
 
+** Entrainement
 
-** Autres
+#+NAME: trainbest
+#+BEGIN_SRC ipython
+  model = train_best_markov_model(
+      2, len(alphabet),
+      observations,
+      nb_candidates=3,
+      train_iter=8,
+      max_iter=100)
+#+END_SRC
+
+#+NAME: trainfromscratch
+#+BEGIN_SRC ipython
+  model = markovmodel.fromscratch(2, len(alphabet))
+  train_markov_model(model, observations, 100)
+#+END_SRC
+
+** Divers
 
 #+NAME: deforgmodetable
 #+BEGIN_SRC ipython
@@ -1029,20 +1046,12 @@ def orgmodetable(matrix, header=False):
   from markov import *
 #+END_SRC
 
-#+NAME: trainfromscratch
-#+BEGIN_SRC ipython
-  model = markovmodel.fromscratch(2, len(alphabet))
-  train_markov_model(model, observations, 100)
-#+END_SRC
-
-#+NAME: trainbest
-#+BEGIN_SRC ipython
-  model = train_best_markov_model(
-      2, len(alphabet),
-      observations,
-      nb_candidates=3,
-      train_iter=8,
-      max_iter=100)
+#+NAME: extractresults
+#+BEGIN_SRC sh
+  best=$(grep -n score $pattern* | sort -k 2 -t ' ' -gr | head -n1)
+  file=$(echo $best | cut -f 1 -d ':')
+  line=$(echo $best | cut -f 2 -d ':')
+  tail --lines=+$((line + 1)) $file
 #+END_SRC
 
 * Introduction                                                       :export:
@@ -1387,11 +1396,9 @@ Pour être sûr d'obtenir de bons résultats, le script est exécuté $50$ fois 
   done
 #+END_SRC
 
-#+BEGIN_SRC sh :tangle bestrepfrench.sh :exports results :results replace drawer :shebang "#!/usr/bin/env bash"
-  best=$(grep -n score repfrench_execution_* | sort -k 2 -t ' ' -gr | head -n1)
-  file=$(echo $best | cut -f 1 -d ':')
-  line=$(echo $best | cut -f 2 -d ':')
-  tail --lines=+$((line + 1)) $file
+#+BEGIN_SRC sh :tangle bestrepfrench.sh :exports results :results replace drawer :shebang "#!/usr/bin/env bash" :noweb yes
+  pattern='repfrench_execution_'
+  <<extractresults>>
 #+END_SRC
 
 #+RESULTS:
@@ -1554,11 +1561,11 @@ L'approche adoptée est la même que celle utilisée pour le corpus français ; 
   done
 #+END_SRC
 
-#+BEGIN_SRC sh :tangle bestwikifinnish.sh :exports results :results replace drawer :shebang "#!/usr/bin/env bash"
-  best=$(grep -n score wikifinnish_execution_* | sort -k 2 -t ' ' -gr | head -n1)
-  file=$(echo $best | cut -f 1 -d ':')
-  line=$(echo $best | cut -f 2 -d ':')
-  tail --lines=+$((line + 1)) $file
+*** Résultats
+
+#+BEGIN_SRC sh :tangle bestwikifinnish.sh :exports results :results replace drawer :shebang "#!/usr/bin/env bash" :noweb yes
+  pattern='wikifinnish_execution_'
+  <<extractresults>>
 #+END_SRC
 
 #+RESULTS:
@@ -1568,44 +1575,44 @@ L'approche adoptée est la même que celle utilisée pour le corpus français ; 
 #+NAME: finnishrep
 | caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
-| \textvisiblespace | $5.488$    | $18.367$   |
-| a                 | $0.040$    | $21.883$   |
-| ä                 | $0.006$    | $4.969$    |
+| \textvisiblespace | $5.530$    | $18.344$   |
+| a                 | $0.039$    | $21.911$   |
+| ä                 | $0.006$    | $4.975$    |
 | å                 | $0.000$    | $0.000$    |
-| b                 | $0.738$    | $0.000$    |
-| c                 | $0.200$    | $0.166$    |
-| d                 | $2.596$    | $0.000$    |
-| e                 | $0.000$    | $13.650$   |
-| f                 | $0.356$    | $0.003$    |
-| g                 | $0.693$    | $0.191$    |
-| h                 | $2.930$    | $0.000$    |
-| i                 | $0.000$    | $17.048$   |
-| j                 | $4.034$    | $0.000$    |
-| k                 | $9.688$    | $0.000$    |
-| l                 | $10.982$   | $0.000$    |
-| m                 | $6.288$    | $0.000$    |
-| n                 | $15.548$   | $0.000$    |
-| o                 | $0.000$    | $9.858$    |
-| ö                 | $0.000$    | $0.800$    |
-| p                 | $3.288$    | $0.000$    |
+| b                 | $0.737$    | $0.000$    |
+| c                 | $0.201$    | $0.165$    |
+| d                 | $2.593$    | $0.000$    |
+| e                 | $0.000$    | $13.668$   |
+| f                 | $0.354$    | $0.003$    |
+| g                 | $0.698$    | $0.185$    |
+| h                 | $2.926$    | $0.000$    |
+| i                 | $0.000$    | $17.070$   |
+| j                 | $4.029$    | $0.000$    |
+| k                 | $9.675$    | $0.000$    |
+| l                 | $10.967$   | $0.000$    |
+| m                 | $6.280$    | $0.000$    |
+| n                 | $15.527$   | $0.000$    |
+| o                 | $0.000$    | $9.871$    |
+| ö                 | $0.000$    | $0.801$    |
+| p                 | $3.284$    | $0.000$    |
 | q                 | $0.004$    | $0.000$    |
-| r                 | $5.567$    | $0.000$    |
-| s                 | $12.405$   | $0.303$    |
-| t                 | $15.074$   | $0.000$    |
-| u                 | $0.000$    | $10.069$   |
-| v                 | $3.742$    | $0.000$    |
+| r                 | $5.560$    | $0.000$    |
+| s                 | $12.468$   | $0.227$    |
+| t                 | $15.053$   | $0.000$    |
+| u                 | $0.000$    | $10.082$   |
+| v                 | $3.737$    | $0.000$    |
 | w                 | $0.173$    | $0.000$    |
 | x                 | $0.045$    | $0.000$    |
-| y                 | $0.000$    | $2.696$    |
+| y                 | $0.000$    | $2.699$    |
 | z                 | $0.115$    | $0.000$    | 
 
 
 
 #+CAPTION: Groupes formés - Wikipédia finnois
 #+NAME: finnishgrp
-| Groupe 1                                                                          | Hors groupes | Groupe 2                                              |
-|-----------------------------------------------------------------------------------|--------------|-------------------------------------------------------|
-| { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  z } | { å }        | { \textvisiblespace,  a,  ä,  e,  i,  o,  ö,  u,  y } |
+| Groupe 1                                                       | Groupe 2                                      | Hors groupes |
+|----------------------------------------------------------------|-----------------------------------------------|--------------|
+| { b, c, d, f, g, h, j, k, l, m, n, p, q, r, s, t, v, w, x, z } | { \textvisiblespace, a, ä, e, i, o, ö, u, y } | { å }        |
 :END:
 
 
@@ -1629,19 +1636,27 @@ Stamp, Mark. (2018). A Revealing Introduction to Hidden Markov Models. https://w
 * Testing scripts
 
 #+BEGIN_SRC sh :tangle test_english.sh :shebang "#!/usr/bin/env bash"
-  ./brownextract.py
-  ./brownmarvin.py
-  ./brownrandom.py
+  echo "testing on brown corpus"
+  ./brownextract.py > /dev/null
+  echo "predefined matrices groups "
+  ./brownmarvin.py | tail -n 1
+  ./brownrandom.py | tail -n 1
 #+END_SRC
 
 #+BEGIN_SRC sh :tangle test_french.sh :shebang "#!/usr/bin/env bash"
   ./repextract.py
-  ./repfrench.py
+  pattern='.french_results'
+  ./repfrench.py > $pattern
+  <<extractresults>>
 #+END_SRC
 
 #+BEGIN_SRC sh :tangle test_finnish.sh :shebang "#!/usr/bin/env bash"
-  ./wikifiextract.sh
-  ./wikifinnish.py
+  # The wikipedia dump is too heavy to put on github or to download separately
+  # ./wikifiextract.sh
+
+  pattern='.finnish_results'
+  ./wikifinnish.py > $pattern
+  <<extractresults>>
 #+END_SRC
 
 #+BEGIN_SRC sh :tangle test_all.sh :shebang "#!/usr/bin/env bash"

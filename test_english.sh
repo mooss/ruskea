@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
-./brownextract.py
-./brownmarvin.py
-./brownrandom.py
+echo "testing on brown corpus"
+./brownextract.py > /dev/null
+echo "predefined matrices groups "
+./brownmarvin.py | tail -n 1
+./brownrandom.py | tail -n 1
