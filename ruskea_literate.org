@@ -1638,12 +1638,14 @@ Stamp, Mark. (2018). A Revealing Introduction to Hidden Markov Models. https://w
 #+BEGIN_SRC sh :tangle test_english.sh :shebang "#!/usr/bin/env bash"
   echo "testing on brown corpus"
   ./brownextract.py > /dev/null
-  echo "predefined matrices groups "
+  echo "predefined matrices groups"
   ./brownmarvin.py | tail -n 1
+  echo "procedurally generated groups"
   ./brownrandom.py | tail -n 1
 #+END_SRC
 
 #+BEGIN_SRC sh :tangle test_french.sh :shebang "#!/usr/bin/env bash"
+  echo "testing on est républicain corpus"
   ./repextract.py
   pattern='.french_results'
   ./repfrench.py > $pattern
@@ -1651,6 +1653,8 @@ Stamp, Mark. (2018). A Revealing Introduction to Hidden Markov Models. https://w
 #+END_SRC
 
 #+BEGIN_SRC sh :tangle test_finnish.sh :shebang "#!/usr/bin/env bash"
+  echo "testing on finnish wikipedia corpus"
+
   # The wikipedia dump is too heavy to put on github or to download separately
   # ./wikifiextract.sh
 
