@@ -1056,8 +1056,12 @@ def orgmodetable(matrix, header=False):
 #+END_SRC
 
 * Introduction                                                       :export:
+:PROPERTIES:
+:UNNUMBERED: t
+:END:
+\addcontentsline{toc}{chapter}{Introduction}
 L'expérience de "Marvin le martien" (Stamp 2018) montre qu'il est possible d'extraire des caractéristiques linguistiques à partir d'un corpus de petite taille (50000 caractères), et ce sans connaissances préalables sur la langue du corpus.
-Cette expérience consiste à entrainer des modèles de Markov cachés comprenant deux états sur le corpus.
+Cette expérience consiste à entrainer des modèles de Markov cachés comprenant deux états sur un corpus en anglais.
 Les deux états ainsi formés regroupent d'une part les consonnes et d'autre part les voyelles.
 
 Nous allons dans un premier temps reproduire cette expérience sur le corpus évoqué dans (Stamp 2018). Nous allons par la suite mener une expérience similaire sur un corpus en langue française. Finalement cette même expérience sera faite sur un corpus finnois.
@@ -1067,6 +1071,7 @@ Le choix a été fait d'implémenter en python l'algorithme d'entrainement d'un 
 * Reproduction de l'expérience sur le /Brown corpus/                 :export:
 
 Cette section décrit la démarche entreprise pour reproduire l'expérience de "Marvin le martien" sur le /Brown corpus/.
+
 Dans un premier temps la méthode utilisée pour extraire les 50000 premiers caractères du /Brown corpus/ va être détaillée.
 Ensuite, une reproduction de l'expérience va être effectuée en utilisant les matrices proposées dans (Stamp 2018).
 Finalement, l'expérience va être reproduite en initialisant les matrices procéduralement.
@@ -1180,41 +1185,41 @@ Bien que la tendance générale soit la même que dans l'article original, les v
 #+NAME: marvinrep
 | Caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
-| \textvisiblespace | $28.066$   | $6.473$    |
-| a                 | $14.255$   | $0.002$    |
-| b                 | $0.000$    | $2.122$    |
-| c                 | $0.069$    | $5.056$    |
-| d                 | $0.000$    | $6.680$    |
-| e                 | $22.567$   | $0.000$    |
-| f                 | $0.000$    | $3.432$    |
-| g                 | $0.445$    | $2.296$    |
-| h                 | $0.050$    | $7.061$    |
-| i                 | $12.772$   | $0.000$    |
-| j                 | $0.000$    | $0.227$    |
-| k                 | $0.293$    | $0.503$    |
-| l                 | $0.006$    | $7.281$    |
-| m                 | $0.000$    | $3.724$    |
-| n                 | $0.000$    | $11.484$   |
-| o                 | $13.769$   | $0.000$    |
-| p                 | $0.186$    | $3.288$    |
-| q                 | $0.000$    | $0.154$    |
-| r                 | $0.000$    | $10.085$   |
-| s                 | $0.015$    | $10.705$   |
-| t                 | $2.039$    | $13.206$   |
-| u                 | $4.653$    | $0.000$    |
-| v                 | $0.000$    | $1.633$    |
-| w                 | $0.000$    | $2.145$    |
-| x                 | $0.000$    | $0.454$    |
-| y                 | $0.815$    | $1.874$    |
-| z                 | $0.000$    | $0.115$    | 
+| a                 | $0.050$    | $13.487$   |
+| b                 | $2.231$    | $0.000$    |
+| c                 | $5.362$    | $0.022$    |
+| d                 | $7.025$    | $0.000$    |
+| e                 | $0.267$    | $21.161$   |
+| f                 | $3.609$    | $0.000$    |
+| g                 | $2.637$    | $0.204$    |
+| h                 | $5.415$    | $2.016$    |
+| i                 | $0.000$    | $12.127$   |
+| j                 | $0.238$    | $0.000$    |
+| k                 | $0.518$    | $0.288$    |
+| l                 | $7.328$    | $0.328$    |
+| m                 | $3.917$    | $0.000$    |
+| n                 | $12.077$   | $0.000$    |
+| o                 | $0.013$    | $13.061$   |
+| p                 | $3.513$    | $0.122$    |
+| q                 | $0.162$    | $0.000$    |
+| r                 | $10.606$   | $0.000$    |
+| s                 | $11.239$   | $0.033$    |
+| t                 | $15.192$   | $0.659$    |
+| u                 | $0.000$    | $4.418$    |
+| v                 | $1.718$    | $0.000$    |
+| w                 | $2.255$    | $0.000$    |
+| x                 | $0.477$    | $0.000$    |
+| y                 | $2.643$    | $0.115$    |
+| z                 | $0.121$    | $0.000$    |
+| \textvisiblespace | $1.385$    | $31.959$   | 
 
 
 
 #+CAPTION: Groupes formés - /Brown corpus/ - Matrices pré-initialisées
 #+NAME: marvingrp
-| Groupe 1                    | Groupe 2                                  |
-|-----------------------------|-------------------------------------------|
-| \textvisiblespace a e i o u | b c d f g h j k l m n p q r s t v w x y z |
+| Groupe 1                                  | Groupe 2                    |
+|-------------------------------------------|-----------------------------|
+| b c d f g h j k l m n p q r s t v w x y z | a e i o u \textvisiblespace |
 :END:
 
 #+ATTR_LATEX: :align l l l
@@ -1291,7 +1296,7 @@ Cette solution est implémentée dans la méthode =markovmodel.fromscratch=, vis
 
 *** Résultats
 
-Des résultats identiques à ceux de l'expérience originale ont été retrouvés dans 45 des 50 exécutions du script ci-dessus. Les tables [[randbrownrep]] et [[randbrowngrp]] montrent le résultat d'une de ces exécutions.
+Des résultats similaires à ceux de l'expérience originale ont été retrouvés dans 45 des 50 exécutions du script ci-dessus. Les tables [[randbrownrep]] et [[randbrowngrp]] montrent le résultat d'une de ces exécutions.
 
 #+BEGIN_SRC ipython :tangle no :exports results :noweb yes
   name = 'randbrown'
@@ -1306,41 +1311,41 @@ Des résultats identiques à ceux de l'expérience originale ont été retrouvé
 #+NAME: randbrownrep
 | Caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
-| \textvisiblespace | $27.281$   | $7.311$    |
-| a                 | $14.345$   | $0.000$    |
-| b                 | $0.000$    | $2.110$    |
-| c                 | $0.033$    | $5.061$    |
-| d                 | $0.001$    | $6.641$    |
-| e                 | $22.708$   | $0.000$    |
-| f                 | $0.000$    | $3.413$    |
-| g                 | $0.514$    | $2.222$    |
-| h                 | $0.000$    | $7.066$    |
-| i                 | $12.852$   | $0.000$    |
-| j                 | $0.000$    | $0.225$    |
-| k                 | $0.297$    | $0.498$    |
-| l                 | $0.000$    | $7.246$    |
-| m                 | $0.000$    | $3.703$    |
-| n                 | $0.000$    | $11.419$   |
-| o                 | $13.855$   | $0.000$    |
-| p                 | $0.221$    | $3.238$    |
-| q                 | $0.000$    | $0.153$    |
-| r                 | $0.000$    | $10.028$   |
-| s                 | $0.024$    | $10.637$   |
-| t                 | $2.216$    | $12.982$   |
-| u                 | $4.681$    | $0.001$    |
-| v                 | $0.000$    | $1.624$    |
-| w                 | $0.000$    | $2.132$    |
-| x                 | $0.000$    | $0.451$    |
-| y                 | $0.973$    | $1.724$    |
-| z                 | $0.000$    | $0.115$    | 
+| a                 | $0.000$    | $14.258$   |
+| b                 | $2.121$    | $0.000$    |
+| c                 | $5.097$    | $0.024$    |
+| d                 | $6.679$    | $0.000$    |
+| e                 | $0.000$    | $22.566$   |
+| f                 | $3.432$    | $0.000$    |
+| g                 | $2.427$    | $0.303$    |
+| h                 | $7.052$    | $0.059$    |
+| i                 | $0.000$    | $12.774$   |
+| j                 | $0.227$    | $0.000$    |
+| k                 | $0.513$    | $0.282$    |
+| l                 | $7.283$    | $0.004$    |
+| m                 | $3.724$    | $0.000$    |
+| n                 | $11.483$   | $0.000$    |
+| o                 | $0.000$    | $13.771$   |
+| p                 | $3.381$    | $0.084$    |
+| q                 | $0.154$    | $0.000$    |
+| r                 | $10.084$   | $0.000$    |
+| s                 | $10.718$   | $0.000$    |
+| t                 | $13.550$   | $1.665$    |
+| u                 | $0.000$    | $4.654$    |
+| v                 | $1.633$    | $0.000$    |
+| w                 | $2.144$    | $0.000$    |
+| x                 | $0.453$    | $0.000$    |
+| y                 | $2.081$    | $0.590$    |
+| z                 | $0.115$    | $0.000$    |
+| \textvisiblespace | $5.647$    | $28.966$   | 
 
 
 
 #+CAPTION: Groupes formés - /Brown corpus/ - Matrices initialisées procéduralement
 #+NAME: randbrowngrp
-| Groupe 1                    | Groupe 2                                  |
-|-----------------------------|-------------------------------------------|
-| \textvisiblespace a e i o u | b c d f g h j k l m n p q r s t v w x y z |
+| Groupe 1                                  | Groupe 2                    |
+|-------------------------------------------|-----------------------------|
+| b c d f g h j k l m n p q r s t v w x y z | a e i o u \textvisiblespace |
 :END:
 
 
@@ -1389,7 +1394,7 @@ L'alphabet utilisé correspond à celui décrit dans Wikipédia (https://fr.wiki
       output.write(''.join(filterspaces(charbuffer)))
 #+END_SRC
 
-Cette approche a ses limites, par exemple, il y a beaucoup de =h= isolés à cause de la notation des heures (exemple : de 20h à 20h30). Par ailleurs la suppression de certain caractères spéciaux mène à des juxtapositions indésirables (exemple : saint-mihiel \textrightarrow saintmihiel, l'heure \textrightarrow lheure).
+Cette approche a ses limites, par exemple, il y a beaucoup de =h= isolés à cause de la notation des heures (exemple : de 20h à 20h30). Par ailleurs la suppression de certain caractères spéciaux mène à des juxtapositions indésirables (exemple : saint-mihiel \rightarrow saintmihiel, l'heure \rightarrow lheure).
 
 Il serait possible de créer des règles pour traiter ces cas particuliers. Cependant, ils semblent être statistiquement insignifiants, c'est pourquoi le choix a été fait de ne pas s'en soucier.
 
@@ -1436,7 +1441,7 @@ La table [[rawfrenchgrp]] indique les groupes formés par le modèle. Les caract
 
 Un autre résultat remarquable est que comme pour l'anglais, le =y= est classifié avec les consonnes. Cependant, les probabilités d'observations dans l'état consonne et dans l'état voyelle pour le =y= sont plus proches en français qu'en anglais[fn:ycomp].
 
-[fn:ycomp] Voir les tables [[rawfrenchrep]] et [[randbrownrep]].
+[fn:ycomp] Comparer les tables [[rawfrenchrep]] et [[randbrownrep]].
 
 
 #+BEGIN_SRC sh :shebang "#!/usr/bin/env bash" :eval never :exports none :tangle repfrench50times.sh :exports none
@@ -1567,7 +1572,7 @@ Le script original a été modifié afin de n'extraire que les $N$ premiers cara
       make_corpus(in_f, out_f, maxchar)
 #+END_SRC
 
-Le texte est extrait dans le fichier =wiki_fi_50000.txt=.
+Les 50000 premiers caractères du texte sont extraits dans le fichier =wiki_fi_50000.txt=.
 
 #+BEGIN_SRC bash :tangle wikifiextract.sh :shebang "#!/usr/bin/env bash" :exports code :eval never
   ./make_wiki_corpus.py fiwiki-latest-pages-articles.xml.bz2 wiki_fi_50000.txt 50000
@@ -1578,7 +1583,7 @@ Le texte est extrait dans le fichier =wiki_fi_50000.txt=.
 :header-args:ipython: :tangle wikifinnish.py :eval never
 :END:
 
-L'approche adoptée est la même que celle utilisée pour le corpus français ; $N$ modèles sont entrainés $M$ fois, le meilleur est par la suite entrainé $100-N$ fois. Ce processus est répété 50 fois, et les résultats du meilleur modèle sont conservés. Ces résultats sont visibles dans les tables [[finnishrep]] et [[finnishgrp]].
+L'approche adoptée est la même que celle utilisée pour le corpus français ; $N$ modèles sont entrainés $M$ fois, le meilleur est par la suite entrainé $100-N$ fois. Ce processus est répété 50 fois, et les résultats du meilleur modèle sont conservés.
 
 #+BEGIN_SRC ipython :exports code :shebang "#!/usr/bin/env python3" :noweb yes
   <<markovimport>>
@@ -1690,7 +1695,7 @@ Ainsi, ces trois langages montrent une relation entre les groupes formés par de
 En faisant l'expérience avec un vaste échantillon de langues écrites, il serait possible de constater empiriquement si cette relation est une propriété fondamentale des languages naturels.
 
 Il serait également intéressant de répéter cette expérience en utilisant des modèles de Markov à trois, quatre - ou plus - états.
-L'expérience présentée ne considérait que des caractères individuels. Un autre paramètre à faire varier est le nombre de caractères constituant une observation.
+L'expérience présentée ne considérait que des caractères individuels ; un autre paramètre à faire varier est le nombre de caractères constituant une observation.
 Ces variantes nécessiteraient une plus grande puissance de calcul.
 Ainsi, le temps d'apprentissage pourrait devenir un problème.
 Il serait mieux pour cela d'utiliser une bibliothèque externe plutôt que l'implémentation naïve utilisée ici.
@@ -1698,6 +1703,10 @@ Il serait mieux pour cela d'utiliser une bibliothèque externe plutôt que l'imp
 
 
 * Sources                                                            :export:
+:PROPERTIES:
+:UNNUMBERED: t
+:END:
+\addcontentsline{toc}{chapter}{Sources}
 Stamp, Mark. (2018). A Revealing Introduction to Hidden Markov Models. https://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf.
 
 * Testing scripts

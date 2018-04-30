@@ -1,0 +1,2 @@
+* Distanciel /probabilics models/
+Ce repo contient les fichiers utilisés pour écrire le distanciel du cours /probabilistics models/ sur les modèles de Markov cachés.
