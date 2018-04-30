@@ -1060,7 +1060,7 @@ L'expérience de "Marvin le martien" (Stamp 2018) montre qu'il est possible d'ex
 Cette expérience consiste à entrainer des modèles de Markov cachés comprenant deux états sur le corpus.
 Les deux états ainsi formés regroupent d'une part les consonnes et d'autre part les voyelles.
 
-Nous allons dans un premier temps reproduire cette expérience sur le corpus évoqué dans (Stamp 2018), puis nous allons mener une expérience similaire sur un corpus en langue française.
+Nous allons dans un premier temps reproduire cette expérience sur le corpus évoqué dans (Stamp 2018). Nous allons par la suite mener une expérience similaire sur un corpus en langue française. Finalement cette même expérience sera faite sur un corpus finnois.
 
 Le choix a été fait d'implémenter en python l'algorithme d'entrainement d'un modèle de Markov caché. Cette implémentation est disponible sur github à l'adresse suivante : https://github.com/mooss/ruskea.
 
@@ -1176,9 +1176,9 @@ Bien que la tendance générale soit la même que dans l'article original, les v
 #+RESULTS:
 :RESULTS:
 #+ATTR_LATEX: :align l l l
-#+CAPTION: Répartition des caractères - /Brown corpus/ - Matrices pré-initialisées
+#+CAPTION: Probabilités d'observation - /Brown corpus/ - Matrices pré-initialisées
 #+NAME: marvinrep
-| caractère         | État 1 (%) | État 2 (%) |
+| Caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
 | \textvisiblespace | $28.066$   | $6.473$    |
 | a                 | $14.255$   | $0.002$    |
@@ -1212,11 +1212,12 @@ Bien que la tendance générale soit la même que dans l'article original, les v
 
 #+CAPTION: Groupes formés - /Brown corpus/ - Matrices pré-initialisées
 #+NAME: marvingrp
-| Groupe 1                                  | Groupe 2                                                                              |
-|-------------------------------------------|---------------------------------------------------------------------------------------|
-| { \textvisiblespace,  a,  e,  i,  o,  u } | { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } |
+| Groupe 1                    | Groupe 2                                  |
+|-----------------------------|-------------------------------------------|
+| \textvisiblespace a e i o u | b c d f g h j k l m n p q r s t v w x y z |
 :END:
 
+#+ATTR_LATEX: :align l l l
 #+CAPTION: Probabilités d'observation (Stamp 2018)
 #+NAME: stampobsmatrix
 | Caractère         | État 1 (%) | État 2 (%) |
@@ -1301,9 +1302,9 @@ Des résultats identiques à ceux de l'expérience originale ont été retrouvé
 #+RESULTS:
 :RESULTS:
 #+ATTR_LATEX: :align l l l
-#+CAPTION: Répartition des caractères - /Brown corpus/ - Matrices initialisées procéduralement
+#+CAPTION: Probabilités d'observation - /Brown corpus/ - Matrices initialisées procéduralement
 #+NAME: randbrownrep
-| caractère         | État 1 (%) | État 2 (%) |
+| Caractère         | État 1 (%) | État 2 (%) |
 |-------------------|------------|------------|
 | \textvisiblespace | $27.281$   | $7.311$    |
 | a                 | $14.345$   | $0.000$    |
@@ -1337,9 +1338,9 @@ Des résultats identiques à ceux de l'expérience originale ont été retrouvé
 
 #+CAPTION: Groupes formés - /Brown corpus/ - Matrices initialisées procéduralement
 #+NAME: randbrowngrp
-| Groupe 1                                  | Groupe 2                                                                              |
-|-------------------------------------------|---------------------------------------------------------------------------------------|
-| { \textvisiblespace,  a,  e,  i,  o,  u } | { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } |
+| Groupe 1                    | Groupe 2                                  |
+|-----------------------------|-------------------------------------------|
+| \textvisiblespace a e i o u | b c d f g h j k l m n p q r s t v w x y z |
 :END:
 
 
@@ -1612,7 +1613,7 @@ L'approche adoptée est la même que celle utilisée pour le corpus français ; 
 *** Résultats
 L'alphabet finnois est composé des 26 caractères de l'alphabet latin, et de trois voyelles supplémentaires (=äåö=). Parmi les 26 caractères latins, certains sont majoritairement utilisés dans des mots d'emprunt (=bcfgqwxz=). De plus, =å= est un emprunt de l'alphabet suédois et n'est présent que dans des noms propres.
 
-Les groupes formés dans la table [[finnishgrp]] sont les consonnes et les voyelles. Une analyse de la table [[finnishrep]] suggère que les distinctions entre les consonnes et les voyelles sont fortement prononcées, hormis pour les lettres =c=, =g=
+Les groupes formés dans la table [[finnishgrp]] sont les consonnes et les voyelles. Une analyse de la table [[finnishrep]] suggère que les distinctions entre les consonnes et les voyelles sont fortement prononcées, hormis pour les lettres =c=, =g= et =s=.
 
 #+BEGIN_SRC sh :tangle bestwikifinnish.sh :exports results :results replace drawer :shebang "#!/usr/bin/env bash" :noweb yes
   pattern='wikifinnish_execution_'
@@ -1680,6 +1681,21 @@ Les groupes formés dans la table [[finnishgrp]] sont les consonnes et les voyel
 :RESULTS:
  : .600 (30 / 50)
 :END:
+
+
+* Discussion                                                         :export:
+Il semble y avoir en anglais, comme en français et en finnois, une distinction statistique entre consonnes et voyelles, distinction pouvant être mise en évidence à l'aide de modèles de Markov.
+
+Ainsi, ces trois langages montrent une relation entre les groupes formés par des modèles de Markov et des caractéristiques linguistiques.
+En faisant l'expérience avec un vaste échantillon de langues écrites, il serait possible de constater empiriquement si cette relation est une propriété fondamentale des languages naturels.
+
+Il serait également intéressant de répéter cette expérience en utilisant des modèles de Markov à trois, quatre - ou plus - états.
+L'expérience présentée ne considérait que des caractères individuels. Un autre paramètre à faire varier est le nombre de caractères constituant une observation.
+Ces variantes nécessiteraient une plus grande puissance de calcul.
+Ainsi, le temps d'apprentissage pourrait devenir un problème.
+Il serait mieux pour cela d'utiliser une bibliothèque externe plutôt que l'implémentation naïve utilisée ici.
+
+
 
 * Sources                                                            :export:
 Stamp, Mark. (2018). A Revealing Introduction to Hidden Markov Models. https://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf.
