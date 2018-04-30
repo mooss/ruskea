@@ -13,7 +13,7 @@ marvin_initial = array([[0.51316, 0.48684]])
 with open('brown50000.txt', 'r') as brownfile:
     corpus = brownfile.read().replace('\n', '')
 
-alphabet = ' abcdefghijklmnopqrstuvwxyz'
+alphabet = 'abcdefghijklmnopqrstuvwxyz '
 
 model = markovmodel(marvin_transition, marvin_observation, marvin_initial, rel_tol=1e-3)
 

@@ -191,7 +191,7 @@ Autrement dit, les MMC vont permettre de maximiser le nombre d'états corrects.
                    observation_matrix,
                    initial_state_distribution,
                    rel_tol=1e-9):
-          """Create a markov model.
+          """Create a Markov model.
 
           Parameters
           ----------
@@ -279,7 +279,7 @@ Autrement dit, les MMC vont permettre de maximiser le nombre d'états corrects.
 :  [0.32128992 0.36485099 0.31385909]]
 
 **** Exemple prédiction de température
-Il s'agit ici de tester la création des chaines de markov en utilisant l'exemple de prédiction de température.
+Il s'agit ici de tester la création des modèles de Markov en utilisant l'exemple de prédiction de température.
 
 #+BEGIN_SRC ipython
   try:
@@ -628,7 +628,7 @@ La probabilité de la chaine d'observation selon le modèle de Markov est utilis
 
 #+BEGIN_SRC ipython
   def log_observation_sequence_probability(scale_factors):
-      """Compute the log of the observation's sequence probability according to a markov model, using the scales factors.
+      """Compute the log of the observation's sequence probability according to a Markov model, using the scales factors.
 
       Parameters
       ----------
@@ -670,7 +670,7 @@ On utilise les trois fonctions de réestimation précédentes pour réestimer le
 #+END_SRC
 
 *** Boucle de réestimation
-L'entrainement d'un modèle de markov se fait en répétant des réevaluations.
+L'entrainement d'un modèle de Markov se fait en répétant des réevaluations.
 On arrête la boucle de réestimation lorsque un nombre pré-déterminé a été achevé ou lorsque la réestimation cesse d'apporter des améliorations par rapport à l'itération précédente.
 
 #+BEGIN_SRC ipython
@@ -970,7 +970,7 @@ initial states:
       pass
   print(orgmodetable(scoretable, header=True), '\n\n\n')
 
-  groupstable = [['{ ' + ', '.join((latexify(char) for char in group)) + ' }'
+  groupstable = [[' '.join((latexify(char) for char in group))
                     for group in groups] ]
   groupstable.insert(0, ['Groupe 1', 'Groupe 2'])
 
@@ -978,7 +978,7 @@ initial states:
       groupstable[0].append(
           'Hors groupes')
       groupstable[1].append(
-          '{ ' + ', '.join(latexify(char) for char in ungroupables) + ' }')
+          ' '.join(latexify(char) for char in ungroupables))
 
   caption = '#+CAPTION: Groupes formés'
   try:
@@ -1062,7 +1062,7 @@ Les deux états ainsi formés regroupent d'une part les consonnes et d'autre par
 
 Nous allons dans un premier temps reproduire cette expérience sur le corpus évoqué dans (Stamp 2018), puis nous allons mener une expérience similaire sur un corpus en langue française.
 
-Le choix a été fait d'implémenter en python l'algorithme d'entrainement d'un modèle de markov caché. Cette implémentation est disponible sur github à l'adresse suivante : https://github.com/mooss/ruskea.
+Le choix a été fait d'implémenter en python l'algorithme d'entrainement d'un modèle de Markov caché. Cette implémentation est disponible sur github à l'adresse suivante : https://github.com/mooss/ruskea.
 
 * Reproduction de l'expérience sur le /Brown corpus/                 :export:
 
@@ -1217,11 +1217,10 @@ Bien que la tendance générale soit la même que dans l'article original, les v
 | { \textvisiblespace,  a,  e,  i,  o,  u } | { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } |
 :END:
 
-
-
 #+CAPTION: Probabilités d'observation (Stamp 2018)
 #+NAME: stampobsmatrix
 | Caractère         | État 1 (%) | État 2 (%) |
+|-------------------+------------+------------|
 | a                 |     13.845 |      0.075 |
 | b                 |      0.000 |      2.311 |
 | c                 |      0.062 |      5.614 |
@@ -1348,12 +1347,12 @@ Des résultats identiques à ceux de l'expérience originale ont été retrouvé
 Cette section s'appuie sur un corpus contenant des articles du journal l'Est Républicain, publiés en 1999.
 Le corpus est disponible à l'adresse suivante : http://www.cnrtl.fr/corpus/estrepublicain/.
 
-L'alphabet utilisé correspond à celui proposé par Wikipédia (https://fr.wikipedia.org/wiki/Alphabet_fran%C3%A7ais), soit les 26 lettres fondamentales, les 13 voyelles accentuées (=àâéèêëîïôùûüÿ=), les deux ligatures (=œæ=), et le c cédille. L'espace se rajoute à ces 42 lettres.
-
 ** Extraction du texte
 Les articles sont contenus dans des fichiers =XML=. Le script suivant est utilisé pour récupérer le texte des articles en ignorant le balisage.
 
 Le texte ainsi extrait est sauvegardé dans le fichier =1999-05-17.txt=.
+
+L'alphabet utilisé correspond à celui décrit dans Wikipédia (https://fr.wikipedia.org/wiki/Alphabet_fran%C3%A7ais), soit les 26 lettres fondamentales, les 13 voyelles accentuées (=àâéèêëîïôùûüÿ=), les deux ligatures (=œæ=), et le c cédille. L'espace se rajoute à ces 42 lettres.
 
 #+BEGIN_SRC ipython :tangle repextract.py :results silent :eval no-export :shebang "#!/usr/bin/env python3"
   import xml.etree.ElementTree as ET
@@ -1389,7 +1388,7 @@ Le texte ainsi extrait est sauvegardé dans le fichier =1999-05-17.txt=.
       output.write(''.join(filterspaces(charbuffer)))
 #+END_SRC
 
-Cette approche a ses limites, par exemple, il y a beaucoup de ``h'' isolés à cause de la notation des heures (exemple : de 20h à 20h30). Par ailleurs la suppression de certain caractères spéciaux mène à des juxtapositions non désirables (exemple : saint-mihiel \textrightarrow saintmihiel, l'heure \textrightarrow lheure).
+Cette approche a ses limites, par exemple, il y a beaucoup de =h= isolés à cause de la notation des heures (exemple : de 20h à 20h30). Par ailleurs la suppression de certain caractères spéciaux mène à des juxtapositions indésirables (exemple : saint-mihiel \textrightarrow saintmihiel, l'heure \textrightarrow lheure).
 
 Il serait possible de créer des règles pour traiter ces cas particuliers. Cependant, ils semblent être statistiquement insignifiants, c'est pourquoi le choix a été fait de ne pas s'en soucier.
 
@@ -1401,7 +1400,7 @@ Il serait possible de créer des règles pour traiter ces cas particuliers. Cepe
 Que ce soit à cause de la taille accrue de l'alphabet, ou des particularités du corpus, les résultats sont moins cohérents au fil des exécutions que lors de l'expérience sur le /Brown corpus/.
 
 Une nouvelle approche s'est donc imposée.
-En plus du système d'initialisation de matrices décrit précédemment, $N$ modèles sont entrainés $M$ fois et le meilleur d'entre eux est selectionné pour continuer l'entrainement jusquà $100$.
+En plus du système d'initialisation de matrices précédemment décrit, $N$ modèles sont entrainés $M$ fois et le meilleur d'entre eux est selectionné pour continuer l'entrainement jusquà $100$.
 On a ici $N=3$ et $M=8$.
 
 Cette approche n'est cependant pas suffisante, les résultats de plusieurs exécutions restent grandement différents.
@@ -1434,7 +1433,7 @@ Pour être sûr d'obtenir de bons résultats, le script est exécuté $50$ fois 
 
 La table [[rawfrenchgrp]] indique les groupes formés par le modèle. Les caractères =æïüÿ= n'étaient pas présents dans le corpus. Les deux groupes formés sont clairement les voyelles et les consonnes, à l'exception des caractères =àëù= qui ont été classés dans le même groupe que les consonnes.
 
-Un autre résultat remarquable est que comme pour l'anglais, le =y= est classifié avec les consonnes. Cependant, les probabilités d'observations dans l'état consonne et dans l'état voyelles pour le =y= sont plus proches en français qu'en anglais[fn:ycomp].
+Un autre résultat remarquable est que comme pour l'anglais, le =y= est classifié avec les consonnes. Cependant, les probabilités d'observations dans l'état consonne et dans l'état voyelle pour le =y= sont plus proches en français qu'en anglais[fn:ycomp].
 
 [fn:ycomp] Voir les tables [[rawfrenchrep]] et [[randbrownrep]].
 
@@ -1514,7 +1513,6 @@ Un autre résultat remarquable est que comme pour l'anglais, le =y= est classifi
 * Expérience sur un corpus finnois                                   :export:
 Le corpus va être extrait du dernier /dump/ du wikipédia finnois (https://dumps.wikimedia.org/fiwiki/latest/fiwiki-latest-pages-articles.xml.bz2), à l'aide de la bibliothèque gensim.
 
-L'alphabet finnois est composé des 26 caractères de l'alphabet latin, et de trois voyelles supplémentaires (=äåö=). Parmi les 26 caractères latins, certains sont majoritairement utilisés dans des mots d'emprunt (=bcfgqwxz=). De plus, =å= est un emprunt de l'alphabet suédois et n'est présent que dans des noms propres.
 ** Extraction du texte
 
 #+BEGIN_SRC bash :tangle download_latest_finnish_wikipedia_dump.sh :eval never :exports none :shebang "#!/usr/bin/env bash"
@@ -1612,6 +1610,9 @@ L'approche adoptée est la même que celle utilisée pour le corpus français ; 
 #+END_SRC
 
 *** Résultats
+L'alphabet finnois est composé des 26 caractères de l'alphabet latin, et de trois voyelles supplémentaires (=äåö=). Parmi les 26 caractères latins, certains sont majoritairement utilisés dans des mots d'emprunt (=bcfgqwxz=). De plus, =å= est un emprunt de l'alphabet suédois et n'est présent que dans des noms propres.
+
+Les groupes formés dans la table [[finnishgrp]] sont les consonnes et les voyelles. Une analyse de la table [[finnishrep]] suggère que les distinctions entre les consonnes et les voyelles sont fortement prononcées, hormis pour les lettres =c=, =g=
 
 #+BEGIN_SRC sh :tangle bestwikifinnish.sh :exports results :results replace drawer :shebang "#!/usr/bin/env bash" :noweb yes
   pattern='wikifinnish_execution_'

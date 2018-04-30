@@ -5,7 +5,7 @@ from markov import *
 with open('brown50000.txt', 'r') as brownfile:
     corpus = brownfile.read().replace('\n', '')
 
-alphabet = ' abcdefghijklmnopqrstuvwxyz'
+alphabet = 'abcdefghijklmnopqrstuvwxyz '
 
 observations = list(islice(
     map_el_to_int(corpus, alphabet),

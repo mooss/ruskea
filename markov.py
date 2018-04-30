@@ -105,7 +105,7 @@ class markovmodel(object):
                  observation_matrix,
                  initial_state_distribution,
                  rel_tol=1e-9):
-        """Create a markov model.
+        """Create a Markov model.
 
         Parameters
         ----------
@@ -359,7 +359,7 @@ def reestimate_observation_matrix(markov, observations, gamma):
             markov.observation_matrix[i, j] = gamma_acc_observed / gamma_acc_all
 
 def log_observation_sequence_probability(scale_factors):
-    """Compute the log of the observation's sequence probability according to a markov model, using the scales factors.
+    """Compute the log of the observation's sequence probability according to a Markov model, using the scales factors.
 
     Parameters
     ----------
