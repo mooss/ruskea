@@ -841,18 +841,19 @@ initial states:
 
 #+NAME: latinalphabet
 #+BEGIN_SRC ipython
-  alphabet = ' abcdefghijklmnopqrstuvwxyz'
+  alphabet = 'abcdefghijklmnopqrstuvwxyz '
 #+END_SRC
 
 #+NAME: frenchalphabet
 #+BEGIN_SRC ipython
-  alphabet = ' aàâæbcçdeéèêëfghiîïjklmnoôœpqrstuùûüvwxyÿz'
+  alphabet = 'aàâæbcçdeéèêëfghiîïjklmnoôœpqrstuùûüvwxyÿz '
 #+END_SRC
 
 #+NAME: finnishalphabet
 #+BEGIN_SRC ipython
-  alphabet = ' aäåbcdefghijklmnoöpqrstuvwxyz'
+  alphabet = 'aäåbcdefghijklmnoöpqrstuvwxyz '
 #+END_SRC
+
 ** Observations
 
 #+NAME: rawObservations
@@ -951,9 +952,9 @@ initial states:
   scoretable = [[latexify(line[0]),
                  ,*('${:.3f}$'.format(probas * 100) for probas in line[1:])]
                 for line in scoretable]
-  scoretable.insert(0, ['caractère', 'État 1 (%)', 'État 2 (%)'])
+  scoretable.insert(0, ['Caractère', 'État 1 (%)', 'État 2 (%)'])
   print('#+ATTR_LATEX: :align l l l')
-  caption = '#+CAPTION: Répartition des caractères'
+  caption = '#+CAPTION: Probabilités d\'observation'
 
   try:
       descr
@@ -1061,7 +1062,7 @@ Les deux états ainsi formés regroupent d'une part les consonnes et d'autre par
 
 Nous allons dans un premier temps reproduire cette expérience sur le corpus évoqué dans (Stamp 2018), puis nous allons mener une expérience similaire sur un corpus en langue française.
 
-Le choix a été fait d'implémenter en python l'algorithme d'entrainement d'un modèle de markov caché. Cette implémentation, de même que ce rapport sont disponibles sur github à l'adresse suivante : https://github.com/mooss/ruskea.
+Le choix a été fait d'implémenter en python l'algorithme d'entrainement d'un modèle de markov caché. Cette implémentation est disponible sur github à l'adresse suivante : https://github.com/mooss/ruskea.
 
 * Reproduction de l'expérience sur le /Brown corpus/                 :export:
 
@@ -1159,7 +1160,12 @@ Les probabilités d'apparition sont rapportées sous forme de pourcentages, afin
 La table [[marvingrp]] regroupe les caractères selon l'état pour lequel il ont la plus grande probabilité d'apparition.
 Les résultats des autres expériences seront également présentés sous cette forme.
 
-Les résultats obtenus sont les mêmes que ceux présentés dans (Stamp 2018), à savoir les voyelles (moins y) d'un côté et les consonnes (plus y) de l'autre.
+Les résultats obtenus sont similaires à ceux présentés dans (Stamp 2018), à savoir les voyelles (moins y) d'un côté et les consonnes (plus y) de l'autre.
+
+Bien que la tendance générale soit la même que dans l'article original, les valeurs des matrices de probabilité d'observation diffèrent[fn:orgrepcomp]. L'article n'explicite pas quelle démarche a été utilisée pour extraire les premiers caractères du /Brown corpus/. La démarche utilisée ici repose sur la supposition que la méthode =nltk.corpus.brown.sents()= parcours les phrases du /Brown corpus/ de la même manière que dans l'article. Il est probable que les méthodes utilisées diffèrent, résultant ainsi en une chaine d'observation et en un modèle différents.
+
+[fn:orgrepcomp] Les probabilités d'observation de l'article original sont visibles dans la table [[stampobsmatrix]].
+
 
 #+BEGIN_SRC ipython :tangle no :exports results :noweb yes
   name = 'marvin'
@@ -1211,6 +1217,39 @@ Les résultats obtenus sont les mêmes que ceux présentés dans (Stamp 2018), �
 | { \textvisiblespace,  a,  e,  i,  o,  u } | { b,  c,  d,  f,  g,  h,  j,  k,  l,  m,  n,  p,  q,  r,  s,  t,  v,  w,  x,  y,  z } |
 :END:
 
+
+
+#+CAPTION: Probabilités d'observation (Stamp 2018)
+#+NAME: stampobsmatrix
+| Caractère         | État 1 (%) | État 2 (%) |
+| a                 |     13.845 |      0.075 |
+| b                 |      0.000 |      2.311 |
+| c                 |      0.062 |      5.614 |
+| d                 |      0.000 |      6.937 |
+| e                 |     21.404 |      0.000 |
+| f                 |      0.000 |      3.559 |
+| g                 |      0.081 |      2.724 |
+| h                 |      0.066 |      7.278 |
+| i                 |     12.275 |      0.000 |
+| j                 |      0.000 |      0.365 |
+| k                 |      0.182 |      0.703 |
+| l                 |      0.049 |      7.231 |
+| m                 |      0.000 |      3.889 |
+| n                 |      0.000 |     11.461 |
+| o                 |     13.156 |      0.000 |
+| p                 |      0.040 |      3.674 |
+| q                 |      0.000 |      0.153 |
+| r                 |      0.000 |     10.225 |
+| s                 |      0.000 |     11.042 |
+| t                 |      1.102 |     14.392 |
+| u                 |      4.508 |      0.000 |
+| v                 |      0.000 |      1.621 |
+| w                 |      0.000 |      2.303 |
+| x                 |      0.000 |      0.447 |
+| y                 |      0.019 |      2.587 |
+| z                 |      0.000 |      0.110 |
+| \textvisiblespace |     33.211 |      1.298 |
+
 ** Matrices générées procéduralement
 :PROPERTIES:
 :header-args:ipython: :session brownrandomexec :results output replace drawer :tangle brownrandom.py
@@ -1249,6 +1288,8 @@ Cette solution est implémentée dans la méthode =markovmodel.fromscratch=, vis
 #+BEGIN_SRC ipython :exports none :eval no :noweb yes
   <<printresults>>
 #+END_SRC
+
+*** Résultats
 
 Des résultats identiques à ceux de l'expérience originale ont été retrouvés dans 45 des 50 exécutions du script ci-dessus. Les tables [[randbrownrep]] et [[randbrowngrp]] montrent le résultat d'une de ces exécutions.
 
@@ -1348,7 +1389,7 @@ Le texte ainsi extrait est sauvegardé dans le fichier =1999-05-17.txt=.
       output.write(''.join(filterspaces(charbuffer)))
 #+END_SRC
 
-Cette approche a ses limites, par exemple, il y a beaucoup de 'h' isolés à cause de la notation des heures (exemple : de 20h à 20h30). Par ailleurs la suppression de certain caractères spéciaux mène à des juxtapositions non désirables (exemple : saint-mihiel \textrightarrow saintmihiel, l'heure \textrightarrow lheure).
+Cette approche a ses limites, par exemple, il y a beaucoup de ``h'' isolés à cause de la notation des heures (exemple : de 20h à 20h30). Par ailleurs la suppression de certain caractères spéciaux mène à des juxtapositions non désirables (exemple : saint-mihiel \textrightarrow saintmihiel, l'heure \textrightarrow lheure).
 
 Il serait possible de créer des règles pour traiter ces cas particuliers. Cependant, ils semblent être statistiquement insignifiants, c'est pourquoi le choix a été fait de ne pas s'en soucier.
 
@@ -1388,6 +1429,15 @@ Pour être sûr d'obtenir de bons résultats, le script est exécuté $50$ fois 
 
   <<markov_report>>
 #+END_SRC
+
+*** Résultats
+
+La table [[rawfrenchgrp]] indique les groupes formés par le modèle. Les caractères =æïüÿ= n'étaient pas présents dans le corpus. Les deux groupes formés sont clairement les voyelles et les consonnes, à l'exception des caractères =àëù= qui ont été classés dans le même groupe que les consonnes.
+
+Un autre résultat remarquable est que comme pour l'anglais, le =y= est classifié avec les consonnes. Cependant, les probabilités d'observations dans l'état consonne et dans l'état voyelles pour le =y= sont plus proches en français qu'en anglais[fn:ycomp].
+
+[fn:ycomp] Voir les tables [[rawfrenchrep]] et [[randbrownrep]].
+
 
 #+BEGIN_SRC sh :shebang "#!/usr/bin/env bash" :eval never :exports none :tangle repfrench50times.sh :exports none
   for((i=0; i<50; ++i));
